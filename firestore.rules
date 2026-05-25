@@ -11,6 +11,10 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
+    function getUserEmployeeId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId;
+    }
+    
     function isSuperAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserRole() == 'super_admin'; }
     function isAltAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserRole() == 'alt_admin'; }
     function isAdmin() { return isSuperAdmin() || isAltAdmin(); }
@@ -48,8 +52,8 @@ service cloud.firestore {
     }
 
     match /tickets/{ticketId} {
-      allow get: if isSignedIn() && (isStaff() || existing().creatorUserId == request.auth.uid);
-      allow list: if isSignedIn() && (isStaff() || resource.data.creatorUserId == request.auth.uid);
+      allow get: if isSignedIn() && (isStaff() || existing().creatorUserId == request.auth.uid || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && existing().employeeId == getUserEmployeeId()));
+      allow list: if isSignedIn() && (isStaff() || resource.data.creatorUserId == request.auth.uid || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.employeeId == getUserEmployeeId()));
       allow create: if (isSignedIn() && incoming().creatorUserId == request.auth.uid) || (incoming().creatorUserId == 'Guest-AI');
       allow update: if isSignedIn() && incoming().creatorUserId == existing().creatorUserId && (
         isAdmin() || 
@@ -60,15 +64,25 @@ service cloud.firestore {
     match /tickets/{ticketId}/comments/{commentId} {
       allow get: if isSignedIn() && (
         isStaff() || 
-        (!existing().isInternal && get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorUserId == request.auth.uid)
+        (!existing().isInternal && (
+          existing().userId == request.auth.uid ||
+          get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorUserId == request.auth.uid ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/tickets/$(ticketId)).data.employeeId == getUserEmployeeId())
+        ))
       );
       allow list: if isSignedIn() && (
         isStaff() || 
-        (resource.data.isInternal == false && get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorUserId == request.auth.uid)
+        (resource.data.isInternal == false && (
+          get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorUserId == request.auth.uid ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/tickets/$(ticketId)).data.employeeId == getUserEmployeeId())
+        ))
       );
       allow create: if isSignedIn() && incoming().userId == request.auth.uid && (
         isStaff() ||
-        (!incoming().isInternal && get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorUserId == request.auth.uid)
+        (!incoming().isInternal && (
+          get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorUserId == request.auth.uid ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/tickets/$(ticketId)).data.employeeId == getUserEmployeeId())
+        ))
       );
       allow update, delete: if false;
     }

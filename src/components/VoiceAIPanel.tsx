@@ -36,17 +36,20 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
     loadConfig();
 
-    // Dynamically inject the ElevenLabs widget script
-    const script = document.createElement('script');
-    script.src = "https://elevenlabs.io/convai-widget/index.js";
-    script.async = true;
-    script.type = "text/javascript";
-    document.body.appendChild(script);
+    // Dynamically inject the ElevenLabs widget script if not already defined
+    let script: HTMLScriptElement | null = null;
+    if (!customElements.get('elevenlabs-convai')) {
+      script = document.createElement('script');
+      script.src = "https://elevenlabs.io/convai-widget/index.js";
+      script.async = true;
+      script.type = "text/javascript";
+      document.body.appendChild(script);
+    }
 
     return () => {
       active = false;
       isClosingRef.current = true;
-      if (document.body.contains(script)) {
+      if (script && document.body.contains(script)) {
         document.body.removeChild(script);
       }
     };
