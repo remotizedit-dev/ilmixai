@@ -146,90 +146,42 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           height: 100% !important;
         }
 
-        /* Reset floating positioning of the widget root container */
-        div[class*="widget-wrapper"],
-        div[class*="container"],
-        div[class*="root"] {
-          position: relative !important;
-          bottom: auto !important;
-          right: auto !important;
-          left: auto !important;
-          top: auto !important;
-          margin: 0 auto !important;
-          width: 100% !important;
-          height: 100% !important;
-          max-width: 100% !important;
-          max-height: 100% !important;
-          background: transparent !important;
-          background-color: transparent !important;
-          box-shadow: none !important;
-          border: none !important;
-          padding: 0 !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-        }
-
-        /* Force all launcher containers to be transparent so only the orb/button is shown */
-        :host > div,
-        div[class*="card"],
+        /* Hide launcher entirely, but keep dialogs visible */
         div[class*="launcher"],
-        div[class*="button-wrapper"] {
+        div[class*="card"],
+        div[class*="button-wrapper"],
+        div[class*="widget-wrapper"] {
+          opacity: 0 !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+          width: 0 !important;
+          height: 0 !important;
+          max-width: 0 !important;
+          max-height: 0 !important;
+          position: absolute !important;
           background: transparent !important;
           background-color: transparent !important;
           box-shadow: none !important;
           border: none !important;
-          width: 100% !important;
-          height: 100% !important;
-          padding: 0 !important;
-          margin: 0 !important;
+        }
+
+        /* Keep terms and dialog overlays fully visible, opaque, and interactive */
+        div[class*="dialog-overlay"],
+        div[class*="modal-backdrop"],
+        div[class*="backdrop"],
+        div[class*="dialog-content"],
+        div[class*="modal-content"],
+        div[class*="terms-modal"],
+        div[class*="dialog"],
+        div[class*="modal"] {
+          opacity: 1 !important;
+          visibility: visible !important;
           display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-        }
-
-        /* Hide text/labels in launcher card so only the call orb button is visible in the circle */
-        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > span[class*="text"],
-        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > p[class*="text"],
-        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="text"],
-        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="label"],
-        div[class*="launcher"] span,
-        div[class*="launcher"] p,
-        div[class*="card"] span,
-        div[class*="card"] p,
-        span[class*="action"],
-        span[class*="start"] {
-          display: none !important;
-        }
-
-        /* Target the call button to fill the parent circle wrapper */
-        button,
-        div[class*="call-button"],
-        button[class*="button"] {
-          background: transparent !important;
-          border: none !important;
-          box-shadow: none !important;
-          width: 100% !important;
-          height: 100% !important;
-          border-radius: 50% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          cursor: pointer !important;
-        }
-
-        /* Style the voice orb / avatar to fill the container circle */
-        canvas,
-        svg,
-        div[class*="orb"],
-        div[class*="avatar"],
-        img[class*="avatar"] {
-          width: 100% !important;
-          height: 100% !important;
-          border-radius: 50% !important;
-          display: block !important;
+          pointer-events: auto !important;
+          width: 90% !important;
+          height: auto !important;
+          max-width: 440px !important;
+          max-height: 80vh !important;
         }
 
         /* Terms & conditions dialog overlay style overrides for perfect responsiveness and zero clipping */
@@ -255,9 +207,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           top: 50% !important;
           left: 50% !important;
           transform: translate(-50%, -50%) !important;
-          width: 90% !important;
-          max-width: 440px !important;
-          max-height: 80vh !important;
           overflow-y: auto !important;
           background: #ffffff !important;
           background-color: #ffffff !important;
@@ -265,7 +214,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           border-radius: 20px !important;
           padding: 28px !important;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
-          display: flex !important;
           flex-direction: column !important;
           z-index: 100000 !important;
           box-sizing: border-box !important;
@@ -290,6 +238,8 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           color: #334155 !important;
           background: transparent !important;
           background-color: transparent !important;
+          opacity: 1 !important;
+          visibility: visible !important;
         }
 
         /* Terms & conditions heading style */
@@ -304,9 +254,11 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           margin-bottom: 14px !important;
           background: transparent !important;
           background-color: transparent !important;
+          opacity: 1 !important;
+          visibility: visible !important;
         }
 
-        /* Ensure Agree button is styled and completely visible/clickable */
+        /* Ensure buttons inside Terms dialog are completely visible and clickable */
         div[class*="dialog-content"] button,
         div[class*="modal-content"] button,
         div[class*="dialog"] button,
@@ -315,6 +267,7 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           align-items: center !important;
           justify-content: center !important;
           background-color: #2563eb !important;
+          background: #2563eb !important;
           color: #ffffff !important;
           padding: 12px 24px !important;
           border-radius: 12px !important;
@@ -325,6 +278,9 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           width: 100% !important;
           height: auto !important;
           border: none !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: auto !important;
         }
         
         div[class*="dialog-content"] button:hover,
@@ -332,6 +288,30 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
         div[class*="dialog"] button:hover,
         div[class*="modal"] button:hover {
           background-color: #1d4ed8 !important;
+        }
+
+        /* Style cancel/secondary buttons if present to slate color */
+        div[class*="dialog-content"] button[class*="secondary"],
+        div[class*="modal-content"] button[class*="secondary"],
+        div[class*="dialog"] button[class*="cancel"],
+        div[class*="modal"] button[class*="cancel"],
+        div[class*="dialog-content"] button:first-of-type,
+        div[class*="modal-content"] button:first-of-type,
+        div[class*="dialog"] button:first-of-type,
+        div[class*="modal"] button:first-of-type {
+          background-color: #64748b !important;
+          background: #64748b !important;
+          color: #ffffff !important;
+        }
+
+        /* Ensure the final confirmation button is blue and high-contrast */
+        div[class*="dialog-content"] button:last-of-type,
+        div[class*="modal-content"] button:last-of-type,
+        div[class*="dialog"] button:last-of-type,
+        div[class*="modal"] button:last-of-type {
+          background-color: #2563eb !important;
+          background: #2563eb !important;
+          color: #ffffff !important;
         }
       `;
       shadow.appendChild(style);
@@ -406,10 +386,25 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
                       </ol>
                    </div>
 
-                   {/* Custom ElevenLabs Element */}
-                   <div className="relative w-28 h-28 flex items-center justify-center bg-white/5 rounded-full border border-white/10 shadow-inner">
-                      <elevenlabs-convai ref={widgetRef} agent-id={agentId} disable-banner="true"></elevenlabs-convai>
-                   </div>
+                    {/* Custom Centered Glowing Microphone Circle Wrapper */}
+                    <div className="relative w-28 h-28 flex items-center justify-center bg-slate-950 rounded-full border border-green-500/30 hover:border-green-400/60 shadow-[0_0_20px_rgba(34,197,94,0.15)] hover:shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all duration-300 group cursor-pointer overflow-visible">
+                       
+                       {/* Pulsing rings */}
+                       <div className="absolute inset-0 bg-green-500/10 rounded-full animate-ping pointer-events-none opacity-40"></div>
+                       <div className="absolute -inset-1 bg-gradient-to-tr from-green-500/20 to-emerald-400/20 rounded-full blur-sm opacity-60 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+
+                       {/* Central Micro Orb */}
+                       <div className="absolute inset-2 bg-slate-900 border border-green-500/40 rounded-full flex flex-col items-center justify-center space-y-1 z-10 transition-transform duration-300 group-hover:scale-105 shadow-inner">
+                          <span className="text-xl animate-bounce">🎙️</span>
+                          <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest group-hover:text-green-300 transition-colors">Start Call</span>
+                       </div>
+
+                       {/* Invisible ElevenLabs Widget Sitting Exactly On Top to Intercept Click events */}
+                       <div className="absolute inset-0 opacity-0 z-20 cursor-pointer overflow-visible">
+                          <elevenlabs-convai ref={widgetRef} agent-id={agentId} disable-banner="true"></elevenlabs-convai>
+                       </div>
+
+                    </div>
                 </div>
              )}
 

@@ -76,7 +76,7 @@ export default function Login() {
         }
       }
       
-      await refreshProfile();
+      await refreshProfile(user.uid);
       navigate('/dashboard');
     } catch (err: any) {
       console.error(err);
