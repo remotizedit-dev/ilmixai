@@ -149,23 +149,70 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           height: 100% !important;
         }
 
-        /* Hide launcher entirely, but keep dialogs visible */
+        /* Force launcher container to be fully transparent but fully clickable and interactive */
+        :host > div,
+        div[class*="widget-wrapper"],
+        div[class*="container"],
+        div[class*="root"],
         div[class*="launcher"],
-        div[class*="card"],
-        div[class*="button-wrapper"],
-        div[class*="widget-wrapper"] {
-          opacity: 0 !important;
-          visibility: hidden !important;
-          pointer-events: none !important;
-          width: 0 !important;
-          height: 0 !important;
-          max-width: 0 !important;
-          max-height: 0 !important;
-          position: absolute !important;
+        div[class*="card"] {
           background: transparent !important;
           background-color: transparent !important;
           box-shadow: none !important;
           border: none !important;
+          width: 100% !important;
+          height: 100% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          pointer-events: auto !important;
+          visibility: visible !important;
+        }
+
+        /* Hide text/labels in launcher card so only the call orb button is visible in the circle */
+        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > span[class*="text"],
+        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > p[class*="text"],
+        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="text"],
+        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="label"],
+        div[class*="launcher"] span,
+        div[class*="launcher"] p,
+        div[class*="card"] span,
+        div[class*="card"] p,
+        span[class*="action"],
+        span[class*="start"] {
+          display: none !important;
+        }
+
+        /* Target the call button to fill the parent circle wrapper and be clickable */
+        button,
+        div[class*="call-button"],
+        button[class*="button"] {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          width: 100% !important;
+          height: 100% !important;
+          border-radius: 50% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          cursor: pointer !important;
+          pointer-events: auto !important;
+          visibility: visible !important;
+        }
+
+        /* Style the voice orb / avatar to fill the container circle */
+        canvas,
+        svg,
+        div[class*="orb"],
+        div[class*="avatar"],
+        img[class*="avatar"] {
+          width: 100% !important;
+          height: 100% !important;
+          border-radius: 50% !important;
+          display: block !important;
         }
 
         /* Keep terms and dialog overlays fully visible, opaque, and interactive */
@@ -181,10 +228,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           visibility: visible !important;
           display: flex !important;
           pointer-events: auto !important;
-          width: 90% !important;
-          height: auto !important;
-          max-width: 440px !important;
-          max-height: 80vh !important;
         }
 
         /* Terms & conditions dialog overlay style overrides for perfect responsiveness and zero clipping */
@@ -210,6 +253,9 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           top: 50% !important;
           left: 50% !important;
           transform: translate(-50%, -50%) !important;
+          width: 90% !important;
+          max-width: 440px !important;
+          max-height: 80vh !important;
           overflow-y: auto !important;
           background: #ffffff !important;
           background-color: #ffffff !important;
