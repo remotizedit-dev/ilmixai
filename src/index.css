@@ -5,3 +5,18 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
+elevenlabs-convai {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  top: auto !important;
+}
+
+

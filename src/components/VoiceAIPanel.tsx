@@ -131,8 +131,8 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
          <div className="text-center space-y-6 mt-4 flex flex-col items-center">
              <div>
-                <h2 className="text-2xl font-bold tracking-tight text-white">ilmix <span className="text-blue-400">Voice AI</span></h2>
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Powered by ElevenLabs Conversational AI</p>
+                <h2 className="text-2xl font-bold tracking-tight text-white">ilmix <span className="text-blue-400">AI</span></h2>
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">by Remotized IT</p>
              </div>
 
              {loading ? (

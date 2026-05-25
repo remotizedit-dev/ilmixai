@@ -16,7 +16,7 @@ export default function EndUserPanel() {
     if (!userProfile) return;
     const q = query(
       collection(db, 'tickets'),
-      where('creatorUserId', '==', userProfile.userId)
+      where('employeeId', '==', userProfile.employeeId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
