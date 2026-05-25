@@ -121,9 +121,218 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
     };
   }, [agentId, userProfile, onClose]);
 
+  // Effect 3: Shadow DOM style injector to center/wrap the widget inside the circle
+  useEffect(() => {
+    if (!agentId || loading) return;
+
+    const injectStyles = () => {
+      const widget = widgetRef.current || document.querySelector('elevenlabs-convai');
+      if (!widget || !widget.shadowRoot) return;
+
+      const shadow = widget.shadowRoot;
+
+      // Check if custom styles are already injected
+      if (shadow.getElementById('ilmix-custom-style-tag')) return;
+
+      const style = document.createElement('style');
+      style.id = 'ilmix-custom-style-tag';
+      style.textContent = `
+        /* Center and wrap the widget inside our circular container */
+        :host {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 100% !important;
+          height: 100% !important;
+        }
+
+        /* Reset floating positioning of the widget root container */
+        div[class*="widget-wrapper"],
+        div[class*="container"],
+        div[class*="root"] {
+          position: relative !important;
+          bottom: auto !important;
+          right: auto !important;
+          left: auto !important;
+          top: auto !important;
+          margin: 0 auto !important;
+          width: 100% !important;
+          height: 100% !important;
+          max-width: 100% !important;
+          max-height: 100% !important;
+          background: transparent !important;
+          box-shadow: none !important;
+          border: none !important;
+          padding: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+
+        /* Make the launcher card transparent and borderless so only the orb/button is shown */
+        div[class*="card"],
+        div[class*="launcher"],
+        div[class*="button-wrapper"] {
+          background: transparent !important;
+          box-shadow: none !important;
+          border: none !important;
+          width: 100% !important;
+          height: 100% !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+
+        /* Hide text/labels in launcher card so only the call orb button is visible in the circle */
+        :not(div[class*="dialog"]) :not(div[class*="modal"]) > span[class*="text"],
+        :not(div[class*="dialog"]) :not(div[class*="modal"]) > p[class*="text"],
+        div[class*="launcher"] span,
+        div[class*="launcher"] p,
+        div[class*="card"] span,
+        div[class*="card"] p {
+          display: none !important;
+        }
+
+        /* Target the call button to fill the parent circle wrapper */
+        button,
+        div[class*="call-button"],
+        button[class*="button"] {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          width: 100% !important;
+          height: 100% !important;
+          border-radius: 50% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          cursor: pointer !important;
+        }
+
+        /* Style the voice orb / avatar to fill the container circle */
+        canvas,
+        svg,
+        div[class*="orb"],
+        div[class*="avatar"] {
+          width: 100% !important;
+          height: 100% !important;
+          border-radius: 50% !important;
+        }
+
+        /* Terms & conditions dialog overlay style overrides for perfect responsiveness and zero clipping */
+        div[class*="dialog-overlay"],
+        div[class*="modal-backdrop"] {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          background-color: rgba(15, 23, 42, 0.75) !important;
+          backdrop-filter: blur(4px) !important;
+          z-index: 99999 !important;
+        }
+
+        div[class*="dialog-content"],
+        div[class*="modal-content"],
+        div[class*="terms-modal"] {
+          position: fixed !important;
+          top: 50% !important;
+          left: 50% !important;
+          transform: translate(-50%, -50%) !important;
+          width: 90% !important;
+          max-width: 380px !important;
+          max-height: 80vh !important;
+          overflow-y: auto !important;
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+          border-radius: 20px !important;
+          padding: 24px !important;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+          display: flex !important;
+          flex-direction: column !important;
+          z-index: 100000 !important;
+          box-sizing: border-box !important;
+        }
+
+        /* Restore text visibility in Terms & Conditions modal */
+        div[class*="dialog-content"] span,
+        div[class*="dialog-content"] p,
+        div[class*="dialog-content"] div,
+        div[class*="modal-content"] span,
+        div[class*="modal-content"] p,
+        div[class*="modal-content"] div {
+          display: block !important;
+          font-size: 14px !important;
+          line-height: 1.5 !important;
+          color: #334155 !important;
+        }
+
+        /* Terms & conditions heading style */
+        div[class*="dialog-content"] h2,
+        div[class*="modal-content"] h2 {
+          display: block !important;
+          font-size: 18px !important;
+          font-weight: 700 !important;
+          color: #0f172a !important;
+          margin-bottom: 12px !important;
+        }
+
+        /* Ensure Agree button is styled and completely visible/clickable */
+        div[class*="dialog-content"] button,
+        div[class*="modal-content"] button {
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          background-color: #2563eb !important;
+          color: #ffffff !important;
+          padding: 10px 20px !important;
+          border-radius: 12px !important;
+          font-weight: 600 !important;
+          font-size: 14px !important;
+          cursor: pointer !important;
+          margin-top: 16px !important;
+          width: 100% !important;
+          height: auto !important;
+          border: none !important;
+        }
+        
+        div[class*="dialog-content"] button:hover,
+        div[class*="modal-content"] button:hover {
+          background-color: #1d4ed8 !important;
+        }
+      `;
+      shadow.appendChild(style);
+      console.log("Injected custom CSS into ElevenLabs shadow root.");
+    };
+
+    const observer = new MutationObserver(() => {
+      injectStyles();
+    });
+
+    const intervalId = setInterval(() => {
+      const widget = widgetRef.current || document.querySelector('elevenlabs-convai');
+      if (widget) {
+        if (widget.shadowRoot) {
+          injectStyles();
+          observer.observe(widget.shadowRoot, { childList: true, subtree: true });
+          clearInterval(intervalId);
+        }
+      }
+    }, 100);
+
+    return () => {
+      clearInterval(intervalId);
+      observer.disconnect();
+    };
+  }, [agentId, loading]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md p-8 relative overflow-hidden">
+      <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md p-8 relative max-h-[95vh] overflow-y-auto">
          {/* Top Close Button */}
          <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors z-20">
             <X className="w-5 h-5" />
@@ -170,7 +379,7 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
                    {/* Custom ElevenLabs Element */}
                    <div className="relative w-28 h-28 flex items-center justify-center bg-white/5 rounded-full border border-white/10 shadow-inner">
-                      <elevenlabs-convai ref={widgetRef} agent-id={agentId}></elevenlabs-convai>
+                      <elevenlabs-convai ref={widgetRef} agent-id={agentId} disable-banner="true"></elevenlabs-convai>
                    </div>
                 </div>
              )}
