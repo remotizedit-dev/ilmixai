@@ -147,15 +147,16 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           justify-content: center !important;
           width: 100% !important;
           height: 100% !important;
+          pointer-events: auto !important;
         }
 
         /* Force launcher container to be fully transparent but fully clickable and interactive */
         :host > div,
-        div[class*="widget-wrapper"],
-        div[class*="container"],
-        div[class*="root"],
+        div[class*="widget-wrapper"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]),
+        div[class*="container"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]),
+        div[class*="root"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]),
         div[class*="launcher"],
-        div[class*="card"] {
+        div[class*="card"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) {
           background: transparent !important;
           background-color: transparent !important;
           box-shadow: none !important;
@@ -176,8 +177,8 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
         :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="label"],
         div[class*="launcher"] span,
         div[class*="launcher"] p,
-        div[class*="card"] span,
-        div[class*="card"] p,
+        div[class*="card"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) span,
+        div[class*="card"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) p,
         span[class*="action"],
         span[class*="start"] {
           display: none !important;
@@ -449,7 +450,7 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
                        </div>
 
                        {/* Invisible ElevenLabs Widget Sitting Exactly On Top to Intercept Click events */}
-                       <div className="absolute inset-0 opacity-0 z-20 cursor-pointer overflow-visible">
+                       <div className="absolute inset-0 z-20 cursor-pointer overflow-visible">
                           <elevenlabs-convai ref={widgetRef} agent-id={agentId} disable-banner="true"></elevenlabs-convai>
                        </div>
 
