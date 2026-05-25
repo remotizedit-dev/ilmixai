@@ -161,6 +161,7 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           max-width: 100% !important;
           max-height: 100% !important;
           background: transparent !important;
+          background-color: transparent !important;
           box-shadow: none !important;
           border: none !important;
           padding: 0 !important;
@@ -169,11 +170,13 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           justify-content: center !important;
         }
 
-        /* Make the launcher card transparent and borderless so only the orb/button is shown */
+        /* Force all launcher containers to be transparent so only the orb/button is shown */
+        :host > div,
         div[class*="card"],
         div[class*="launcher"],
         div[class*="button-wrapper"] {
           background: transparent !important;
+          background-color: transparent !important;
           box-shadow: none !important;
           border: none !important;
           width: 100% !important;
@@ -186,12 +189,16 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
         }
 
         /* Hide text/labels in launcher card so only the call orb button is visible in the circle */
-        :not(div[class*="dialog"]) :not(div[class*="modal"]) > span[class*="text"],
-        :not(div[class*="dialog"]) :not(div[class*="modal"]) > p[class*="text"],
+        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > span[class*="text"],
+        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > p[class*="text"],
+        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="text"],
+        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="label"],
         div[class*="launcher"] span,
         div[class*="launcher"] p,
         div[class*="card"] span,
-        div[class*="card"] p {
+        div[class*="card"] p,
+        span[class*="action"],
+        span[class*="start"] {
           display: none !important;
         }
 
@@ -217,15 +224,18 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
         canvas,
         svg,
         div[class*="orb"],
-        div[class*="avatar"] {
+        div[class*="avatar"],
+        img[class*="avatar"] {
           width: 100% !important;
           height: 100% !important;
           border-radius: 50% !important;
+          display: block !important;
         }
 
         /* Terms & conditions dialog overlay style overrides for perfect responsiveness and zero clipping */
         div[class*="dialog-overlay"],
-        div[class*="modal-backdrop"] {
+        div[class*="modal-backdrop"],
+        div[class*="backdrop"] {
           position: fixed !important;
           top: 0 !important;
           left: 0 !important;
@@ -238,19 +248,22 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
         div[class*="dialog-content"],
         div[class*="modal-content"],
-        div[class*="terms-modal"] {
+        div[class*="terms-modal"],
+        div[class*="dialog"],
+        div[class*="modal"] {
           position: fixed !important;
           top: 50% !important;
           left: 50% !important;
           transform: translate(-50%, -50%) !important;
           width: 90% !important;
-          max-width: 380px !important;
+          max-width: 440px !important;
           max-height: 80vh !important;
           overflow-y: auto !important;
+          background: #ffffff !important;
           background-color: #ffffff !important;
           color: #0f172a !important;
           border-radius: 20px !important;
-          padding: 24px !important;
+          padding: 28px !important;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
           display: flex !important;
           flex-direction: column !important;
@@ -264,44 +277,60 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
         div[class*="dialog-content"] div,
         div[class*="modal-content"] span,
         div[class*="modal-content"] p,
-        div[class*="modal-content"] div {
+        div[class*="modal-content"] div,
+        div[class*="dialog"] span,
+        div[class*="dialog"] p,
+        div[class*="dialog"] div,
+        div[class*="modal"] span,
+        div[class*="modal"] p,
+        div[class*="modal"] div {
           display: block !important;
           font-size: 14px !important;
           line-height: 1.5 !important;
           color: #334155 !important;
+          background: transparent !important;
+          background-color: transparent !important;
         }
 
         /* Terms & conditions heading style */
         div[class*="dialog-content"] h2,
-        div[class*="modal-content"] h2 {
+        div[class*="modal-content"] h2,
+        div[class*="dialog"] h2,
+        div[class*="modal"] h2 {
           display: block !important;
-          font-size: 18px !important;
+          font-size: 20px !important;
           font-weight: 700 !important;
           color: #0f172a !important;
-          margin-bottom: 12px !important;
+          margin-bottom: 14px !important;
+          background: transparent !important;
+          background-color: transparent !important;
         }
 
         /* Ensure Agree button is styled and completely visible/clickable */
         div[class*="dialog-content"] button,
-        div[class*="modal-content"] button {
+        div[class*="modal-content"] button,
+        div[class*="dialog"] button,
+        div[class*="modal"] button {
           display: inline-flex !important;
           align-items: center !important;
           justify-content: center !important;
           background-color: #2563eb !important;
           color: #ffffff !important;
-          padding: 10px 20px !important;
+          padding: 12px 24px !important;
           border-radius: 12px !important;
           font-weight: 600 !important;
           font-size: 14px !important;
           cursor: pointer !important;
-          margin-top: 16px !important;
+          margin-top: 20px !important;
           width: 100% !important;
           height: auto !important;
           border: none !important;
         }
         
         div[class*="dialog-content"] button:hover,
-        div[class*="modal-content"] button:hover {
+        div[class*="modal-content"] button:hover,
+        div[class*="dialog"] button:hover,
+        div[class*="modal"] button:hover {
           background-color: #1d4ed8 !important;
         }
       `;
@@ -332,7 +361,7 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md p-8 relative max-h-[95vh] overflow-y-auto">
+      <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-lg p-10 relative max-h-[90vh] overflow-y-auto">
          {/* Top Close Button */}
          <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors z-20">
             <X className="w-5 h-5" />
