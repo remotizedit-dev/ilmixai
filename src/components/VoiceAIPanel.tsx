@@ -1,261 +1,186 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, X, Loader2, StopCircle } from 'lucide-react';
-import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { X, Loader2, Info } from 'lucide-react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, getNextTicketId } from '../firebase';
 import { useAuth } from '../App';
 
 export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
   const { userProfile } = useAuth();
-  const [status, setStatus] = useState<'connecting' | 'listening' | 'speaking' | 'processing' | 'error'>('connecting');
-  const [transcript, setTranscript] = useState<string>('');
-  const [errorMsg, setErrorMsg] = useState('');
-  
-  const wsRef = useRef<WebSocket | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [agentId, setAgentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [ticketCreatedId, setTicketCreatedId] = useState<string | null>(null);
+  const isClosingRef = useRef(false);
+  const widgetRef = useRef<HTMLElement | null>(null);
 
+  // Effect 1: Load config settings and inject script on mount
   useEffect(() => {
     let active = true;
 
-    const startRecording = async () => {
+    const loadConfig = async () => {
       try {
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // Connect directly to the host
-        const wsUrl = `${wsProtocol}//${window.location.host}/live`;
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-
-        const audioCtx = new AudioContext({ sampleRate: 16000 });
-        audioCtxRef.current = audioCtx;
-        nextStartTimeRef.current = 0;
-
-        ws.onopen = async () => {
-          if (!active) return;
-          let instructionsStr = "You are an AI support agent. The user will explain their problem. Collect their issue, confirm it, and once complete say explicitly 'I am creating a ticket for this issue now. Have a good day.' Then end the conversation.";
-          try {
-            const sysSettingsDoc = await getDoc(doc(db, 'system', 'settings'));
-            if (sysSettingsDoc.exists() && sysSettingsDoc.data().aiInstructions) {
-               instructionsStr = sysSettingsDoc.data().aiInstructions;
-            }
-          } catch(e) {}
-          
-          ws.send(JSON.stringify({ 
-            type: 'init',
-            instructions: instructionsStr 
-          }));
-        };
-
-        ws.onmessage = (event) => {
-          if (!active) return;
-          const msg = JSON.parse(event.data);
-          
-          if (msg.connected) {
-             setStatus('listening');
+        const settingsSnap = await getDoc(doc(db, 'system', 'settings'));
+        if (active) {
+          if (settingsSnap.exists() && settingsSnap.data().elevenlabsAgentId) {
+            setAgentId(settingsSnap.data().elevenlabsAgentId);
+          } else {
+            // Fallback to env var
+            setAgentId(import.meta.env.VITE_ELEVENLABS_AGENT_ID || null);
           }
-
-          if (msg.audio) {
-            setStatus('speaking');
-            playAudioChunk(msg.audio);
-          }
-
-          if (msg.transcriptText) {
-             setTranscript(prev => prev + " " + msg.transcriptText);
-             // Dummy feature: if the AI says it's creating a ticket, we can do it client-side based on the transcript 
-             // Normally this would be a function call returned from Gemini
-             if (msg.transcriptText.toLowerCase().includes('creating a ticket')) {
-                handleCreateTicket(transcript + "\n\nAI Notes: " + msg.transcriptText);
-             }
-          }
-
-          if (msg.interrupted) {
-             setStatus('listening');
-             nextStartTimeRef.current = audioCtxRef.current?.currentTime || 0;
-          }
-          
-          if (msg.closed) {
-             cleanup();
-             onClose();
-          }
-        };
-
-        ws.onerror = (e) => {
-          setStatus('error');
-          setErrorMsg('Connection error');
-          console.error(e);
-        };
-
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        streamRef.current = stream;
-        const source = audioCtx.createMediaStreamSource(stream);
-        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-        processorRef.current = processor;
-        
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
-
-        processor.onaudioprocess = (e) => {
-          if (wsRef.current?.readyState === WebSocket.OPEN && status === 'listening') {
-            const channelData = e.inputBuffer.getChannelData(0);
-            const base64 = pcmToBase64(channelData);
-            wsRef.current.send(JSON.stringify({ audio: base64 }));
-          }
-        };
-
-      } catch (err: any) {
-        setStatus('error');
-        setErrorMsg(err.message || 'Failed to start microphone');
+        }
+      } catch (e) {
+        console.error("Failed to load ElevenLabs config:", e);
+      } finally {
+        if (active) setLoading(false);
       }
     };
 
-    startRecording();
+    loadConfig();
+
+    // Dynamically inject the ElevenLabs widget script
+    const script = document.createElement('script');
+    script.src = "https://elevenlabs.io/convai-widget/index.js";
+    script.async = true;
+    script.type = "text/javascript";
+    document.body.appendChild(script);
 
     return () => {
       active = false;
-      cleanup();
+      isClosingRef.current = true;
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
-  }, []); // Empty deps to run once
+  }, []);
 
-  const handleCreateTicket = async (fullDescription: string) => {
-     if (!userProfile) return;
-     try {
-       const newTicketRef = doc(collection(db, 'tickets'));
-       await setDoc(newTicketRef, {
-          ticketId: newTicketRef.id,
-          title: "AI Created Support Ticket",
-          description: fullDescription || "User requested support via AI Voice.",
-          employeeId: userProfile.employeeId,
-          creatorUserId: userProfile.userId,
-          status: 'open',
-          assignedTo: '',
-          createdAt: new Date().toISOString(),
-          totalSupportTimeSeconds: 0,
-          timerState: 'paused'
-       });
-       onClose();
-     } catch (e) {
-       handleFirestoreError(e, OperationType.CREATE, 'tickets');
-     }
-  };
+  // Effect 2: Bind the ElevenLabs client tool triggers directly to the element and document
+  useEffect(() => {
+    if (!agentId) return;
 
-  const playAudioChunk = (base64Audio: string) => {
-    if (!audioCtxRef.current) return;
-    const ctx = audioCtxRef.current;
-    
-    // Decode base64 to float32
-    const binary = atob(base64Audio);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    
-    // Since it's 16-bit PCM, convert to Float32
-    const float32Array = new Float32Array(bytes.length / 2);
-    const dataView = new DataView(bytes.buffer);
-    for (let i = 0; i < bytes.length; i += 2) {
-      const int16 = dataView.getInt16(i, true);
-      float32Array[i / 2] = int16 / 32768.0;
-    }
+    let active = true;
 
-    const audioBuffer = ctx.createBuffer(1, float32Array.length, 16000);
-    audioBuffer.getChannelData(0).set(float32Array);
+    const handleWidgetCall = async (event: any) => {
+      const { toolName, parameters } = event.detail;
+      console.log("ElevenLabs Widget Call Event Received:", toolName, parameters);
 
-    const sourceObject = ctx.createBufferSource();
-    sourceObject.buffer = audioBuffer;
-    sourceObject.connect(ctx.destination);
+      if (
+        toolName === 'createTicket' || 
+        toolName === 'create_ticket' || 
+        toolName === 'createSupportTicket' || 
+        toolName === 'create_support_ticket'
+      ) {
+        const { employeeId, title, summary, fullName, fullname, userName, username } = parameters;
+        const finalName = fullName || fullname || userName || username || userProfile?.name || "Unknown";
+        try {
+          const seqId = await getNextTicketId();
+          const ticketRef = doc(db, 'tickets', seqId);
+          await setDoc(ticketRef, {
+            ticketId: seqId,
+            title: title || "AI Voice Ticket",
+            description: summary || "Created via ElevenLabs Conversational AI.",
+            employeeId: employeeId || userProfile?.employeeId || "Unknown",
+            creatorUserId: userProfile?.userId || "Guest",
+            creatorName: finalName,
+            status: 'open',
+            assignedTo: '',
+            createdAt: new Date().toISOString(),
+            totalSupportTimeSeconds: 0,
+            timerState: 'paused'
+          });
+          
+          if (active) {
+            setTicketCreatedId(seqId);
+          }
 
-    const now = ctx.currentTime;
-    if (nextStartTimeRef.current < now) {
-      nextStartTimeRef.current = now;
-    }
-    sourceObject.start(nextStartTimeRef.current);
-    nextStartTimeRef.current += audioBuffer.duration;
-    
-    // Reset status back to listening when audio done
-    sourceObject.onended = () => {
-       if (nextStartTimeRef.current <= ctx.currentTime + 0.1) {
-          setStatus('listening');
-       }
+          // Leave modal open briefly to show success feedback, then close
+          setTimeout(() => {
+            if (active && !isClosingRef.current) onClose();
+          }, 4000);
+        } catch (e) {
+          console.error("Failed to create sequential ticket from widget:", e);
+        }
+      }
     };
-  };
 
-  const cleanup = () => {
-    if (processorRef.current && audioCtxRef.current) {
-        processorRef.current.disconnect(audioCtxRef.current.destination);
-    }
-    if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-    }
-    if (audioCtxRef.current?.state !== 'closed') {
-        audioCtxRef.current?.close();
-    }
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.close();
-    }
-  };
-
-  function pcmToBase64(float32Array: Float32Array) {
-    const buffer = new ArrayBuffer(float32Array.length * 2); // 16-bit
-    const view = new DataView(buffer);
-    for (let i = 0; i < float32Array.length; i++) {
-        let val = float32Array[i] * 32768; // convert float to 16-bit
-        val = Math.max(-32768, Math.min(32767, val));
-        view.setInt16(i * 2, val, true); // little-endian
+    // Attach listeners to element, document, and window to be absolutely bulletproof
+    const widget = widgetRef.current || document.querySelector('elevenlabs-convai');
+    if (widget) {
+      widget.addEventListener('elevenlabs-convai:call', handleWidgetCall);
+      console.log("Attached event listener directly to elevenlabs-convai custom element.");
     }
     
-    // Convert ArrayBuffer to binary string
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    // Encode to base64
-    return btoa(binary);
-  }
+    document.addEventListener('elevenlabs-convai:call', handleWidgetCall);
+    window.addEventListener('elevenlabs-convai:call', handleWidgetCall);
+
+    return () => {
+      active = false;
+      if (widget) {
+        widget.removeEventListener('elevenlabs-convai:call', handleWidgetCall);
+      }
+      document.removeEventListener('elevenlabs-convai:call', handleWidgetCall);
+      window.removeEventListener('elevenlabs-convai:call', handleWidgetCall);
+    };
+  }, [agentId, userProfile, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-sm p-8 relative">
-         <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors">
+      <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md p-8 relative overflow-hidden">
+         {/* Top Close Button */}
+         <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors z-20">
             <X className="w-5 h-5" />
          </button>
 
-         <div className="text-center space-y-6 mt-4">
-             <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
-                 {status === 'speaking' && (
-                     <div className="absolute inset-0 border-4 border-blue-500 rounded-full animate-ping opacity-20"></div>
-                 )}
-                 <div className={`relative w-20 h-20 rounded-full flex items-center justify-center text-white transition-colors duration-500 ${
-                     status === 'listening' ? 'bg-green-500 shadow-[0_0_30px_rgba(34,197,94,0.3)]' :
-                     status === 'speaking' ? 'bg-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.3)]' :
-                     status === 'error' ? 'bg-red-500 shadow-[0_0_30px_rgba(239,68,68,0.3)]' :
-                     'bg-white/10 border border-white/10'
-                 }`}>
-                     {status === 'connecting' ? <Loader2 className="w-8 h-8 animate-spin" /> : 
-                      status === 'error' ? <StopCircle className="w-8 h-8" /> :
-                      <Mic className="w-8 h-8" />}
-                 </div>
-             </div>
-
+         <div className="text-center space-y-6 mt-4 flex flex-col items-center">
              <div>
-                <h3 className="text-lg font-bold text-white">
-                    {status === 'connecting' ? 'Connecting to AI...' :
-                     status === 'listening' ? "I'm listening..." :
-                     status === 'speaking' ? "AI is speaking..." :
-                     status === 'error' ? "Error connecting" : "Processing"}
-                </h3>
-                <p className="text-sm text-slate-400 mt-2 line-clamp-3">
-                   {errorMsg || transcript || "Speak into your microphone to detail your issue."}
-                </p>
+                <h2 className="text-2xl font-bold tracking-tight text-white">ilmix <span className="text-blue-400">Voice AI</span></h2>
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">Powered by ElevenLabs Conversational AI</p>
              </div>
 
-             <div className="pt-4 flex justify-center">
+             {loading ? (
+                <div className="py-8 flex flex-col items-center justify-center space-y-3">
+                   <Loader2 className="w-10 h-10 animate-spin text-blue-400" />
+                   <p className="text-xs text-slate-400">Loading AI Agent Configuration...</p>
+                </div>
+             ) : !agentId ? (
+                <div className="py-6 px-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-center space-y-3 max-w-xs">
+                   <Info className="w-8 h-8 text-red-400 mx-auto" />
+                   <h3 className="text-sm font-semibold text-white">Agent Not Configured</h3>
+                   <p className="text-xs text-slate-400 leading-relaxed">
+                      The ElevenLabs Agent ID is not set. Please configure it in the **System Settings** panel under your Admin account.
+                   </p>
+                </div>
+             ) : ticketCreatedId ? (
+                <div className="py-6 px-4 bg-green-500/10 border border-green-500/20 rounded-2xl text-center space-y-3 max-w-xs animate-pulse">
+                   <span className="text-4xl">🎉</span>
+                   <h3 className="text-md font-bold text-white">Ticket Logged!</h3>
+                   <p className="text-xs text-green-300 font-semibold font-mono">Ticket ID: #{ticketCreatedId}</p>
+                   <p className="text-[10px] text-slate-400 leading-relaxed">
+                      Your voice request has been processed and logged. Closing this window now...
+                   </p>
+                </div>
+             ) : (
+                <div className="w-full flex flex-col items-center space-y-6">
+                   <div className="p-5 bg-white/5 border border-white/10 rounded-2xl text-left space-y-2.5 max-w-sm">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Instructions:</h4>
+                      <ol className="list-decimal list-inside text-xs text-slate-300 space-y-1.5 leading-relaxed">
+                         <li>Click the green microphone orb below to start talking.</li>
+                         <li>Detail your **User Name (Full Name)**, **Employee ID**, a **Ticket Title**, and a **Summary** of the issue.</li>
+                         <li>The AI will automatically log the ticket and assign ID starting from **0150**!</li>
+                      </ol>
+                   </div>
+
+                   {/* Custom ElevenLabs Element */}
+                   <div className="relative w-28 h-28 flex items-center justify-center bg-white/5 rounded-full border border-white/10 shadow-inner">
+                      <elevenlabs-convai ref={widgetRef} agent-id={agentId}></elevenlabs-convai>
+                   </div>
+                </div>
+             )}
+
+             <div className="pt-2">
                 <button 
-                  onClick={() => handleCreateTicket(transcript || "Empty issue")}
-                  className="px-5 py-2.5 text-sm font-medium text-slate-300 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/10"
+                  onClick={onClose}
+                  className="px-5 py-2.5 text-xs font-medium text-slate-400 hover:text-white transition-colors"
                 >
-                  Create Ticket Manually
+                  Close Window
                 </button>
              </div>
          </div>

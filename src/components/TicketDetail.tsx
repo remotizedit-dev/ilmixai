@@ -33,9 +33,9 @@ export default function TicketDetail() {
       handleFirestoreError(err, OperationType.GET, `tickets/${ticketId}`);
     });
 
-    const q = query(
-      collection(db, 'tickets', ticketId, 'comments')
-    );
+    const q = userProfile.role === 'end_user'
+      ? query(collection(db, 'tickets', ticketId, 'comments'), where('isInternal', '==', false))
+      : query(collection(db, 'tickets', ticketId, 'comments'));
 
     const unsubscribeComments = onSnapshot(q, (snapshot) => {
       const c = snapshot.docs.map(d => d.data() as Comment);
@@ -203,6 +203,7 @@ export default function TicketDetail() {
         <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-6 shadow-xl">
            <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">{ticket.description}</p>
            <div className="mt-4 flex flex-wrap gap-4 text-[10px] uppercase tracking-widest text-slate-500 font-medium">
+             {ticket.creatorName && <span>User Name: {ticket.creatorName}</span>}
              <span>Creator ID: {ticket.creatorUserId.slice(0, 8)}</span>
              <span>EMP ID: {ticket.employeeId}</span>
              <span>Created: {new Date(ticket.createdAt).toLocaleString()}</span>

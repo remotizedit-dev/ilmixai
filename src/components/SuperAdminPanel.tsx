@@ -11,6 +11,7 @@ export default function SuperAdminPanel({ view = 'tickets' }: { view?: 'tickets'
     geminiApiUrl: '',
     voiceToTextApi: '',
     textToSpeechApi: '',
+    elevenlabsAgentId: '',
     initialMessage: 'Hi, I am ilmix AI. How can I help you today?',
     aiInstructions: 'You are a helpful IT support AI agent.',
   });
@@ -65,25 +66,15 @@ export default function SuperAdminPanel({ view = 'tickets' }: { view?: 'tickets'
                 />
              </div>
              
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div>
-                    <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Voice to Text API (Fallback if not Gemini Live)</label>
-                    <input 
-                      type="text" 
-                      value={settings.voiceToTextApi} 
-                      onChange={e => setSettings({...settings, voiceToTextApi: e.target.value})}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Text to Speech API (Fallback)</label>
-                    <input 
-                      type="text" 
-                      value={settings.textToSpeechApi} 
-                      onChange={e => setSettings({...settings, textToSpeechApi: e.target.value})}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
-                    />
-                 </div>
+             <div>
+                <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">ElevenLabs Agent ID</label>
+                <input 
+                  type="text" 
+                  value={settings.elevenlabsAgentId || ''} 
+                  onChange={e => setSettings({...settings, elevenlabsAgentId: e.target.value})}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
+                  placeholder="e.g. 2sY6z7..."
+                />
              </div>
 
              <hr className="border-white/10" />

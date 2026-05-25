@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, where, orderBy, setDoc, doc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, getNextTicketId } from '../firebase';
 import { useAuth } from '../App';
 import { Ticket } from '../types';
 import { Link } from 'react-router';
@@ -40,13 +40,15 @@ export default function SupportEngineerPanel() {
   const handleCreateTicket = async () => {
     if (!userProfile || !newEmpId || !newTitle || !newDesc) return;
     try {
-      const newRef = doc(collection(db, 'tickets'));
+      const seqId = await getNextTicketId();
+      const newRef = doc(db, 'tickets', seqId);
       await setDoc(newRef, {
-        ticketId: newRef.id,
+        ticketId: seqId,
         title: newTitle,
         description: newDesc,
         employeeId: newEmpId,
         creatorUserId: userProfile.userId, // Since staff creates it, they are creator
+        creatorName: userProfile.name || "Support Staff",
         status: 'open',
         assignedTo: '',
         createdAt: new Date().toISOString(),

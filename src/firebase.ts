@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, runTransaction, doc } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -76,3 +76,24 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+
+export const getNextTicketId = async (): Promise<string> => {
+  const counterRef = doc(db, 'system', 'counters');
+  
+  return await runTransaction(db, async (transaction) => {
+    const counterDoc = await transaction.get(counterRef);
+    let nextId = 150; // Start at 150 (corresponds to "0150")
+    
+    if (counterDoc.exists()) {
+      const data = counterDoc.data();
+      if (data && typeof data.ticketCounter === 'number') {
+        nextId = data.ticketCounter + 1;
+      }
+    }
+    
+    transaction.set(counterRef, { ticketCounter: nextId }, { merge: true });
+    
+    // Pad to 4 digits: e.g. "0150", "0151", etc.
+    return String(nextId).padStart(4, '0');
+  });
+};

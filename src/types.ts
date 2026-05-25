@@ -27,6 +27,7 @@ export interface Ticket {
   description: string;
   employeeId: string;
   creatorUserId: string;
+  creatorName?: string;
   status: TicketStatus;
   assignedTo: string; // userId of support engineer
   createdAt: string;
@@ -50,6 +51,7 @@ export interface SystemSettings {
   geminiApiUrl?: string;
   voiceToTextApi?: string;
   textToSpeechApi?: string;
+  elevenlabsAgentId?: string;
   initialMessage?: string;
   aiInstructions?: string;
 }

@@ -43,10 +43,14 @@ service cloud.firestore {
       );
     }
 
+    match /system/counters {
+      allow read, write: if true;
+    }
+
     match /tickets/{ticketId} {
       allow get: if isSignedIn() && (isStaff() || existing().creatorUserId == request.auth.uid);
       allow list: if isSignedIn() && (isStaff() || resource.data.creatorUserId == request.auth.uid);
-      allow create: if isSignedIn() && incoming().creatorUserId == request.auth.uid;
+      allow create: if (isSignedIn() && incoming().creatorUserId == request.auth.uid) || (incoming().creatorUserId == 'Guest-AI');
       allow update: if isSignedIn() && incoming().creatorUserId == existing().creatorUserId && (
         isAdmin() || 
         (isSupportEngineer() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'assignedTo', 'totalSupportTimeSeconds', 'timerState', 'timerLastStartedAt', 'updatedAt', 'closedAt']))
