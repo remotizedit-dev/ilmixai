@@ -86,41 +86,41 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10 p-8 space-y-6">
-        <div className="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center mx-auto border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.2)]">
+    <div className="min-h-screen flex items-center justify-center bg-transparent">
+      <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl shadow-[0_15px_45px_rgba(0,0,0,0.06)] p-10 space-y-8 animate-scale-up">
+        <div className="w-16 h-16 bg-slate-50 text-slate-900 rounded-2xl flex items-center justify-center mx-auto border border-slate-200 shadow-sm">
            <LogIn className="w-8 h-8" />
         </div>
         <div className="text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-white">ilmix <span className="text-blue-400">AI</span></h1>
-          <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-2">Developed by Remotized IT</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">ilmix <span className="text-blue-600">AI</span></h1>
+          <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-2 font-bold">by Remotized IT</p>
         </div>
         
         {error && (
-          <div className="p-3 bg-red-500/20 text-red-300 text-sm rounded-xl border border-red-500/30 text-center">
+          <div className="p-3.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-200 text-center font-medium animate-pulse">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleAuth} className="space-y-4">
+        <form onSubmit={handleAuth} className="space-y-5">
           <div>
-            <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Email Address</label>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
             <input 
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
-              placeholder="admin@example.com"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all"
+              placeholder="name@company.com"
               required
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Password</label>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all"
               placeholder="••••••••"
               required
             />
@@ -128,23 +128,23 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center space-x-2 bg-blue-500 hover:bg-blue-400 text-white py-3 px-4 rounded-xl shadow-xl transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+            className="w-full flex items-center justify-center space-x-2 bg-[#0f172a] hover:bg-[#1e293b] text-white py-3.5 px-4 rounded-xl shadow-[0_4px_12px_rgba(15,23,42,0.15)] transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed mt-4 cursor-pointer animate-fade-in"
           >
             {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin text-white" />
             ) : (
-              <span>{isRegister ? 'Register' : 'Login'}</span>
+              <span>{isRegister ? 'Create Account' : 'Sign In'}</span>
             )}
           </button>
         </form>
         
-        <div className="text-center">
+        <div className="text-center pt-2">
           <button 
             type="button" 
             onClick={() => setIsRegister(!isRegister)}
-            className="text-[11px] uppercase tracking-wider text-slate-400 hover:text-white transition-colors"
+            className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
           >
-            {isRegister ? 'Already have an account? Login' : 'Need an account? Register'}
+            {isRegister ? 'Already registered? Sign In' : 'New here? Register Account'}
           </button>
         </div>
       </div>

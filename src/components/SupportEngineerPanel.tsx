@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, where, orderBy, setDoc, doc } from 'firebase/firestore';
+import { collection, query, onSnapshot, setDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, getNextTicketId } from '../firebase';
 import { useAuth } from '../App';
 import { Ticket } from '../types';
-import { Link } from 'react-router';
-import { Search, Filter, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { Plus } from 'lucide-react';
 
 export default function SupportEngineerPanel() {
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filter, setFilter] = useState<'all' | 'assigned'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -17,9 +18,6 @@ export default function SupportEngineerPanel() {
 
   useEffect(() => {
     let q = query(collection(db, 'tickets'));
-    
-    // As per firestore rules, staff can list all tickets
-    // We filter locally just to handle complex queries without forcing composite indexes on the user right away
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       let t = snapshot.docs.map(d => d.data() as Ticket);
@@ -47,7 +45,7 @@ export default function SupportEngineerPanel() {
         title: newTitle,
         description: newDesc,
         employeeId: newEmpId,
-        creatorUserId: userProfile.userId, // Since staff creates it, they are creator
+        creatorUserId: userProfile.userId,
         creatorName: userProfile.name || "Support Staff",
         status: 'open',
         assignedTo: '',
@@ -65,127 +63,150 @@ export default function SupportEngineerPanel() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full">
+    <div className="p-8 max-w-7xl mx-auto w-full animate-fade-in">
+      {/* Upper Control Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">Support Desk</h2>
-          <p className="text-slate-400 mt-1">Manage and resolve customer tickets.</p>
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Support Desk</h2>
+          <p className="text-slate-500 mt-1 text-xs">Manage, track and resolve customer tickets efficiently.</p>
         </div>
         
         <div className="flex items-center space-x-3">
-           <div className="flex bg-black/40 p-1 rounded-xl border border-white/10">
-             <button 
-               onClick={() => setFilter('all')}
-               className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${filter === 'all' ? 'bg-white/10 shadow-sm text-white border border-white/5' : 'text-slate-400 hover:text-white'}`}
-             >
-               All Tickets
-             </button>
-             <button 
-               onClick={() => setFilter('assigned')}
-               className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${filter === 'assigned' ? 'bg-white/10 shadow-sm text-white border border-white/5' : 'text-slate-400 hover:text-white'}`}
-             >
-               Assigned to Me
-             </button>
+           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button 
+                onClick={() => setFilter('all')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filter === 'all' 
+                    ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' 
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                }`}
+              >
+                All Tickets
+              </button>
+              <button 
+                onClick={() => setFilter('assigned')}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filter === 'assigned' 
+                    ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50' 
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                }`}
+              >
+                Assigned to Me
+              </button>
            </div>
            
            <button 
              onClick={() => setShowCreateModal(true)}
-             className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-400 text-white px-5 py-2.5 rounded-full shadow-xl transition-all text-sm font-medium"
+             className="flex items-center space-x-2 bg-[#0f172a] hover:bg-[#1e293b] text-white px-5 py-2.5 rounded-xl shadow-md transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
            >
              <Plus className="w-4 h-4" />
-             <span>New</span>
+             <span>Create Ticket</span>
            </button>
         </div>
       </div>
 
-      <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 overflow-hidden">
-         <div className="overflow-x-auto">
-           <table className="w-full text-left text-sm text-slate-400">
-             <thead className="bg-black/20 border-b border-white/10 text-slate-300">
-               <tr>
-                 <th className="px-6 py-4 font-semibold">Ticket ID</th>
-                 <th className="px-6 py-4 font-semibold">Title</th>
-                 <th className="px-6 py-4 font-semibold">Employee ID</th>
-                 <th className="px-6 py-4 font-semibold">Status</th>
-                 <th className="px-6 py-4 font-semibold">Assigned To</th>
-                 <th className="px-6 py-4 font-semibold text-right">Time Spent</th>
+      {/* Modern Flat Data Grid - Focused 4 Columns */}
+      <div className="overflow-x-auto w-full">
+         <table className="w-full text-left text-sm text-slate-600 border-collapse">
+           <thead className="border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+             <tr>
+               <th className="px-4 py-3.5 pb-4 w-24">Ticket ID</th>
+               <th className="px-4 py-3.5 pb-4">Title</th>
+               <th className="px-4 py-3.5 pb-4 w-44">Created Date</th>
+               <th className="px-4 py-3.5 pb-4 w-32">Status</th>
+             </tr>
+           </thead>
+           <tbody className="divide-y divide-slate-100">
+             {filteredTickets.map((ticket, index) => (
+               <tr 
+                 key={ticket.ticketId} 
+                 className="hover:bg-slate-50/70 transition-colors cursor-pointer animate-fade-in h-14"
+                 style={{ animationDelay: `${index * 0.03}s` }}
+                 onClick={() => navigate(`/dashboard/ticket/${ticket.ticketId}`)}
+               >
+                 <td className="px-4 py-3 font-mono text-xs text-slate-400 font-bold">#{ticket.ticketId.slice(0,8).toUpperCase()}</td>
+                 <td className="px-4 py-3 font-bold text-slate-900 text-sm truncate max-w-xl">{ticket.title}</td>
+                 <td className="px-4 py-3 text-xs text-slate-500 font-semibold">
+                    {new Date(ticket.createdAt).toLocaleDateString(undefined, { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                 </td>
+                 <td className="px-4 py-3">
+                    <span className={`px-2.5 py-1 text-[9px] uppercase font-extrabold rounded-full border inline-block tracking-wider ${
+                      ticket.status === 'open' ? 'bg-green-50 text-green-700 border-green-200' :
+                      ticket.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      ticket.status === 'resolved' ? 'bg-slate-100 text-slate-700 border-slate-200' :
+                      'bg-slate-50 text-slate-600 border-slate-200'
+                    }`}>
+                      {ticket.status.replace('_', ' ')}
+                    </span>
+                 </td>
                </tr>
-             </thead>
-             <tbody className="divide-y divide-white/5 text-slate-300">
-               {filteredTickets.map(ticket => (
-                 <tr key={ticket.ticketId} className="hover:bg-white/5 transition-colors cursor-pointer" onClick={() => window.location.href=`/dashboard/ticket/${ticket.ticketId}`}>
-                   <td className="px-6 py-4 font-mono text-xs">{ticket.ticketId.slice(0,8)}</td>
-                   <td className="px-6 py-4 font-medium text-white">{ticket.title}</td>
-                   <td className="px-6 py-4">{ticket.employeeId}</td>
-                   <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 text-[10px] uppercase font-bold rounded-full border ${
-                        ticket.status === 'open' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                        ticket.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                        ticket.status === 'resolved' ? 'bg-slate-500/20 text-slate-300 border-slate-500/30' :
-                        'bg-slate-500/20 text-slate-400 border-slate-500/30'
-                      }`}>
-                        {ticket.status.replace('_', ' ')}
-                      </span>
-                   </td>
-                   <td className="px-6 py-4 text-xs font-medium">
-                     {ticket.assignedTo === userProfile?.userId ? <span className="text-blue-400">Me</span> : ticket.assignedTo ? 'Assigned' : 'Unassigned'}
-                   </td>
-                   <td className="px-6 py-4 text-right font-mono text-xs opacity-80">
-                      {Math.floor((ticket.totalSupportTimeSeconds || 0) / 60)}m {(ticket.totalSupportTimeSeconds || 0) % 60}s
-                   </td>
-                 </tr>
-               ))}
-               {filteredTickets.length === 0 && (
-                 <tr>
-                   <td colSpan={6} className="px-6 py-8 text-center text-slate-500">No tickets found.</td>
-                 </tr>
-               )}
-             </tbody>
-           </table>
-         </div>
+             ))}
+             {filteredTickets.length === 0 && (
+               <tr>
+                 <td colSpan={4} className="px-4 py-12 text-center text-slate-400 text-xs font-medium">
+                   No tickets match the current filters.
+                 </td>
+               </tr>
+             )}
+           </tbody>
+         </table>
       </div>
 
+      {/* Manual Ticket Creation Sheet Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-           <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-md p-8">
-              <h3 className="text-lg font-bold text-white mb-6">Create New Ticket</h3>
-              <div className="space-y-4">
-                 <div>
-                    <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Target Employee ID <span className="text-blue-400">*</span></label>
-                    <input 
-                      type="text" 
-                      value={newEmpId} onChange={e => setNewEmpId(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Title <span className="text-blue-400">*</span></label>
-                    <input 
-                      type="text" 
-                      value={newTitle} onChange={e => setNewTitle(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
-                    />
-                 </div>
-                 <div>
-                    <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Description <span className="text-blue-400">*</span></label>
-                    <textarea 
-                      rows={4}
-                      value={newDesc} onChange={e => setNewDesc(e.target.value)}
-                      className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 resize-none"
-                    />
-                 </div>
-                 <div className="pt-4 flex items-center justify-end space-x-3">
-                    <button onClick={() => setShowCreateModal(false)} className="px-5 py-2.5 text-sm font-medium text-slate-300 hover:text-white rounded-xl transition-colors">Cancel</button>
-                    <button 
-                      onClick={handleCreateTicket} 
-                      disabled={!newEmpId || !newTitle || !newDesc}
-                      className="px-5 py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-400 shadow-xl rounded-xl transition-all disabled:opacity-50"
-                    >
-                      Create Ticket
-                    </button>
-                 </div>
-              </div>
-           </div>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md p-8 animate-scale-up">
+               <h3 className="text-md font-bold text-slate-900 uppercase tracking-wider mb-2">Create Support Ticket</h3>
+               <p className="text-slate-500 text-xs mb-6 font-medium">Create a manual ticketing case for internal processing.</p>
+               <div className="space-y-4">
+                  <div>
+                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Target Employee ID <span className="text-red-600">*</span></label>
+                     <input 
+                       type="text" 
+                       placeholder="e.g. 1003"
+                       value={newEmpId} onChange={e => setNewEmpId(e.target.value)}
+                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all font-mono"
+                     />
+                  </div>
+                  <div>
+                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Title <span className="text-red-600">*</span></label>
+                     <input 
+                       type="text" 
+                       placeholder="Brief issue title..."
+                       value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all"
+                     />
+                  </div>
+                  <div>
+                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Description <span className="text-red-600">*</span></label>
+                     <textarea 
+                       rows={4}
+                       placeholder="Provide extensive detail about the problem..."
+                       value={newDesc} onChange={e => setNewDesc(e.target.value)}
+                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 resize-none transition-all"
+                     />
+                  </div>
+                  <div className="pt-4 flex items-center justify-end space-x-3">
+                     <button 
+                       onClick={() => setShowCreateModal(false)} 
+                       className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                     >
+                       Cancel
+                     </button>
+                     <button 
+                       onClick={handleCreateTicket} 
+                       disabled={!newEmpId || !newTitle || !newDesc}
+                       className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-[#0f172a] hover:bg-[#1e293b] shadow-md rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                     >
+                       Create Ticket
+                     </button>
+                  </div>
+               </div>
+            </div>
         </div>
       )}
     </div>

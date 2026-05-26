@@ -17,27 +17,35 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row relative z-10 w-full bg-transparent">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-white/5 backdrop-blur-xl border-r border-white/10 flex flex-col z-20 flex-shrink-0">
-        <div className="p-6 border-b border-white/10 flex flex-col justify-center">
-          <h1 className="text-xl font-bold tracking-tight text-white">ilmix <span className="text-blue-400">AI</span></h1>
-          <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">by Remotized IT</p>
+      <aside className="w-full md:w-64 bg-slate-50 border-r border-slate-200 flex flex-col z-20 flex-shrink-0 transition-all duration-300">
+        <div className="p-6 border-b border-slate-200 flex flex-col justify-center">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">ilmix <span className="text-blue-600">AI</span></h1>
+          <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-bold">by Remotized IT</p>
         </div>
         
-        <nav className="flex-1 p-4 flex flex-col space-y-2">
+        <nav className="flex-1 p-4 flex flex-col space-y-1.5 mt-4">
           <Link 
             to="/dashboard" 
-            className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${location.pathname === '/dashboard' ? 'bg-white/10 border border-white/10 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              location.pathname === '/dashboard' 
+                ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]' 
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
           >
-            <LayoutDashboard className="w-5 h-5 opacity-80" />
+            <LayoutDashboard className="w-5 h-5" />
             <span>Dashboard</span>
           </Link>
 
           {(userProfile.role === 'super_admin' || userProfile.role === 'alt_admin') && (
             <Link 
               to="/dashboard/users" 
-              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${location.pathname.includes('/users') ? 'bg-white/10 border border-white/10 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                location.pathname.includes('/users') 
+                  ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
             >
-              <Users className="w-5 h-5 opacity-80" />
+              <Users className="w-5 h-5" />
               <span>Users</span>
             </Link>
           )}
@@ -45,21 +53,25 @@ export default function Dashboard() {
           {userProfile.role === 'super_admin' && (
             <Link 
               to="/dashboard/settings" 
-              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${location.pathname.includes('/settings') ? 'bg-white/10 border border-white/10 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                location.pathname.includes('/settings') 
+                  ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
             >
-              <Settings className="w-5 h-5 opacity-80" />
+              <Settings className="w-5 h-5" />
               <span>Settings</span>
             </Link>
           )}
         </nav>
 
         <div className="p-4 mt-auto">
-           <div className="flex items-center justify-between bg-gradient-to-br from-blue-500/20 to-purple-500/20 p-4 rounded-2xl border border-white/10 backdrop-blur-lg">
-             <div className="flex flex-col truncate">
-                <span className="text-[10px] uppercase text-slate-400">Current Session</span>
-                <span className="text-sm font-semibold text-white truncate">{userProfile.name}</span>
+           <div className="flex items-center justify-between bg-white border border-slate-200 p-4 rounded-2xl">
+             <div className="flex flex-col truncate pr-2">
+                <span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">Current Session</span>
+                <span className="text-sm font-semibold text-slate-900 truncate mt-0.5">{userProfile.name}</span>
              </div>
-             <button onClick={logout} className="p-2 text-slate-400 hover:text-white transition-colors" title="Logout">
+             <button onClick={logout} className="p-2.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer" title="Logout">
                 <LogOut className="w-4 h-4" />
              </button>
            </div>

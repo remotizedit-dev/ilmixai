@@ -36,22 +36,57 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
     loadConfig();
 
-    // Dynamically inject the ElevenLabs widget script if not already defined
-    let script: HTMLScriptElement | null = null;
-    if (!customElements.get('elevenlabs-convai')) {
-      script = document.createElement('script');
+    // Dynamically inject the ElevenLabs widget script if not already defined in registry or DOM
+    const existingScript = document.querySelector('script[src*="elevenlabs.io"]');
+    if (!existingScript && !customElements.get('elevenlabs-convai')) {
+      const script = document.createElement('script');
       script.src = "https://elevenlabs.io/convai-widget/index.js";
       script.async = true;
       script.type = "text/javascript";
       document.body.appendChild(script);
     }
 
+    // Poller to hide "Powered by ElevenLabs" inside shadow DOM
+    const interval = setInterval(() => {
+      const widget = document.querySelector('elevenlabs-convai');
+      if (widget && widget.shadowRoot) {
+        if (!widget.shadowRoot.querySelector('#hide-banner-style')) {
+          const style = document.createElement('style');
+          style.id = 'hide-banner-style';
+          style.textContent = `
+            a[href*="elevenlabs.io"],
+            [class*="banner"],
+            [class*="powered"],
+            div[style*="font-size: 10px"],
+            div[style*="font-size:10px"] {
+              display: none !important;
+              opacity: 0 !important;
+              visibility: hidden !important;
+              height: 0 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+          `;
+          widget.shadowRoot.appendChild(style);
+        }
+        
+        // Target ONLY leaf anchor elements to prevent hiding parent container tags!
+        const links = widget.shadowRoot.querySelectorAll('a');
+        links.forEach((el: any) => {
+          if (
+            (el.textContent && el.textContent.toLowerCase().includes('powered by')) ||
+            (el.href && el.href.includes('elevenlabs.io'))
+          ) {
+            el.style.display = 'none';
+          }
+        });
+      }
+    }, 100);
+
     return () => {
       active = false;
       isClosingRef.current = true;
-      if (script && document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
+      clearInterval(interval);
     };
   }, []);
 
@@ -124,348 +159,68 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
     };
   }, [agentId, userProfile, onClose]);
 
-  // Effect 3: Shadow DOM style injector to center/wrap the widget inside the circle
-  useEffect(() => {
-    if (!agentId || loading) return;
-
-    const injectStyles = () => {
-      const widget = widgetRef.current || document.querySelector('elevenlabs-convai');
-      if (!widget || !widget.shadowRoot) return;
-
-      const shadow = widget.shadowRoot;
-
-      // Check if custom styles are already injected
-      if (shadow.getElementById('ilmix-custom-style-tag')) return;
-
-      const style = document.createElement('style');
-      style.id = 'ilmix-custom-style-tag';
-      style.textContent = `
-        /* Center and wrap the widget inside our circular container */
-        :host {
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          width: 100% !important;
-          height: 100% !important;
-          pointer-events: auto !important;
-        }
-
-        /* Force launcher container to be fully transparent but fully clickable and interactive */
-        :host > div,
-        div[class*="widget-wrapper"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]),
-        div[class*="container"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]),
-        div[class*="root"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]),
-        div[class*="launcher"],
-        div[class*="card"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) {
-          background: transparent !important;
-          background-color: transparent !important;
-          box-shadow: none !important;
-          border: none !important;
-          width: 100% !important;
-          height: 100% !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          pointer-events: auto !important;
-          visibility: visible !important;
-        }
-
-        /* Hide text/labels in launcher card so only the call orb button is visible in the circle */
-        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > span[class*="text"],
-        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > p[class*="text"],
-        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="text"],
-        :not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) > div[class*="label"],
-        div[class*="launcher"] span,
-        div[class*="launcher"] p,
-        div[class*="card"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) span,
-        div[class*="card"]:not([class*="dialog"]):not([class*="modal"]):not([class*="terms"]):not([class*="consent"]) p,
-        span[class*="action"],
-        span[class*="start"] {
-          display: none !important;
-        }
-
-        /* Target the call button to fill the parent circle wrapper and be clickable */
-        button,
-        div[class*="call-button"],
-        button[class*="button"] {
-          background: transparent !important;
-          border: none !important;
-          box-shadow: none !important;
-          width: 100% !important;
-          height: 100% !important;
-          border-radius: 50% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          cursor: pointer !important;
-          pointer-events: auto !important;
-          visibility: visible !important;
-        }
-
-        /* Style the voice orb / avatar to fill the container circle */
-        canvas,
-        svg,
-        div[class*="orb"],
-        div[class*="avatar"],
-        img[class*="avatar"] {
-          width: 100% !important;
-          height: 100% !important;
-          border-radius: 50% !important;
-          display: block !important;
-        }
-
-        /* Keep terms and dialog overlays fully visible, opaque, and interactive */
-        div[class*="dialog-overlay"],
-        div[class*="modal-backdrop"],
-        div[class*="backdrop"],
-        div[class*="dialog-content"],
-        div[class*="modal-content"],
-        div[class*="terms-modal"],
-        div[class*="dialog"],
-        div[class*="modal"] {
-          opacity: 1 !important;
-          visibility: visible !important;
-          display: flex !important;
-          pointer-events: auto !important;
-        }
-
-        /* Terms & conditions dialog overlay style overrides for perfect responsiveness and zero clipping */
-        div[class*="dialog-overlay"],
-        div[class*="modal-backdrop"],
-        div[class*="backdrop"] {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100vw !important;
-          height: 100vh !important;
-          background-color: rgba(15, 23, 42, 0.75) !important;
-          backdrop-filter: blur(4px) !important;
-          z-index: 99999 !important;
-        }
-
-        div[class*="dialog-content"],
-        div[class*="modal-content"],
-        div[class*="terms-modal"],
-        div[class*="dialog"],
-        div[class*="modal"] {
-          position: fixed !important;
-          top: 50% !important;
-          left: 50% !important;
-          transform: translate(-50%, -50%) !important;
-          width: 90% !important;
-          max-width: 440px !important;
-          max-height: 80vh !important;
-          overflow-y: auto !important;
-          background: #ffffff !important;
-          background-color: #ffffff !important;
-          color: #0f172a !important;
-          border-radius: 20px !important;
-          padding: 28px !important;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
-          flex-direction: column !important;
-          z-index: 100000 !important;
-          box-sizing: border-box !important;
-        }
-
-        /* Restore text visibility in Terms & Conditions modal */
-        div[class*="dialog-content"] span,
-        div[class*="dialog-content"] p,
-        div[class*="dialog-content"] div,
-        div[class*="modal-content"] span,
-        div[class*="modal-content"] p,
-        div[class*="modal-content"] div,
-        div[class*="dialog"] span,
-        div[class*="dialog"] p,
-        div[class*="dialog"] div,
-        div[class*="modal"] span,
-        div[class*="modal"] p,
-        div[class*="modal"] div {
-          display: block !important;
-          font-size: 14px !important;
-          line-height: 1.5 !important;
-          color: #334155 !important;
-          background: transparent !important;
-          background-color: transparent !important;
-          opacity: 1 !important;
-          visibility: visible !important;
-        }
-
-        /* Terms & conditions heading style */
-        div[class*="dialog-content"] h2,
-        div[class*="modal-content"] h2,
-        div[class*="dialog"] h2,
-        div[class*="modal"] h2 {
-          display: block !important;
-          font-size: 20px !important;
-          font-weight: 700 !important;
-          color: #0f172a !important;
-          margin-bottom: 14px !important;
-          background: transparent !important;
-          background-color: transparent !important;
-          opacity: 1 !important;
-          visibility: visible !important;
-        }
-
-        /* Ensure buttons inside Terms dialog are completely visible and clickable */
-        div[class*="dialog-content"] button,
-        div[class*="modal-content"] button,
-        div[class*="dialog"] button,
-        div[class*="modal"] button {
-          display: inline-flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          background-color: #2563eb !important;
-          background: #2563eb !important;
-          color: #ffffff !important;
-          padding: 12px 24px !important;
-          border-radius: 12px !important;
-          font-weight: 600 !important;
-          font-size: 14px !important;
-          cursor: pointer !important;
-          margin-top: 20px !important;
-          width: 100% !important;
-          height: auto !important;
-          border: none !important;
-          opacity: 1 !important;
-          visibility: visible !important;
-          pointer-events: auto !important;
-        }
-        
-        div[class*="dialog-content"] button:hover,
-        div[class*="modal-content"] button:hover,
-        div[class*="dialog"] button:hover,
-        div[class*="modal"] button:hover {
-          background-color: #1d4ed8 !important;
-        }
-
-        /* Style cancel/secondary buttons if present to slate color */
-        div[class*="dialog-content"] button[class*="secondary"],
-        div[class*="modal-content"] button[class*="secondary"],
-        div[class*="dialog"] button[class*="cancel"],
-        div[class*="modal"] button[class*="cancel"],
-        div[class*="dialog-content"] button:first-of-type,
-        div[class*="modal-content"] button:first-of-type,
-        div[class*="dialog"] button:first-of-type,
-        div[class*="modal"] button:first-of-type {
-          background-color: #64748b !important;
-          background: #64748b !important;
-          color: #ffffff !important;
-        }
-
-        /* Ensure the final confirmation button is blue and high-contrast */
-        div[class*="dialog-content"] button:last-of-type,
-        div[class*="modal-content"] button:last-of-type,
-        div[class*="dialog"] button:last-of-type,
-        div[class*="modal"] button:last-of-type {
-          background-color: #2563eb !important;
-          background: #2563eb !important;
-          color: #ffffff !important;
-        }
-      `;
-      shadow.appendChild(style);
-      console.log("Injected custom CSS into ElevenLabs shadow root.");
-    };
-
-    const observer = new MutationObserver(() => {
-      injectStyles();
-    });
-
-    const intervalId = setInterval(() => {
-      const widget = widgetRef.current || document.querySelector('elevenlabs-convai');
-      if (widget) {
-        if (widget.shadowRoot) {
-          injectStyles();
-          observer.observe(widget.shadowRoot, { childList: true, subtree: true });
-          clearInterval(intervalId);
-        }
-      }
-    }, 100);
-
-    return () => {
-      clearInterval(intervalId);
-      observer.disconnect();
-    };
-  }, [agentId, loading]);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl w-full max-w-lg p-10 relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] w-full max-w-lg p-10 relative max-h-[90vh] overflow-y-auto animate-scale-up">
          {/* Top Close Button */}
-         <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors z-20">
+         <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-700 transition-colors z-20 cursor-pointer">
             <X className="w-5 h-5" />
          </button>
 
          <div className="text-center space-y-6 mt-4 flex flex-col items-center">
-             <div>
-                <h2 className="text-2xl font-bold tracking-tight text-white">ilmix <span className="text-blue-400">AI</span></h2>
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-1">by Remotized IT</p>
-             </div>
+              <div>
+                 <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">ilmix <span className="text-blue-600">AI</span></h2>
+                 <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-bold">by Remotized IT</p>
+              </div>
 
-             {loading ? (
-                <div className="py-8 flex flex-col items-center justify-center space-y-3">
-                   <Loader2 className="w-10 h-10 animate-spin text-blue-400" />
-                   <p className="text-xs text-slate-400">Loading AI Agent Configuration...</p>
-                </div>
-             ) : !agentId ? (
-                <div className="py-6 px-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-center space-y-3 max-w-xs">
-                   <Info className="w-8 h-8 text-red-400 mx-auto" />
-                   <h3 className="text-sm font-semibold text-white">Agent Not Configured</h3>
-                   <p className="text-xs text-slate-400 leading-relaxed">
-                      The ElevenLabs Agent ID is not set. Please configure it in the **System Settings** panel under your Admin account.
-                   </p>
-                </div>
-             ) : ticketCreatedId ? (
-                <div className="py-6 px-4 bg-green-500/10 border border-green-500/20 rounded-2xl text-center space-y-3 max-w-xs animate-pulse">
-                   <span className="text-4xl">🎉</span>
-                   <h3 className="text-md font-bold text-white">Ticket Logged!</h3>
-                   <p className="text-xs text-green-300 font-semibold font-mono">Ticket ID: #{ticketCreatedId}</p>
-                   <p className="text-[10px] text-slate-400 leading-relaxed">
-                      Your voice request has been processed and logged. Closing this window now...
-                   </p>
-                </div>
-             ) : (
-                <div className="w-full flex flex-col items-center space-y-6">
-                   <div className="p-5 bg-white/5 border border-white/10 rounded-2xl text-left space-y-2.5 max-w-sm">
-                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Instructions:</h4>
-                      <ol className="list-decimal list-inside text-xs text-slate-300 space-y-1.5 leading-relaxed">
-                         <li>Click the green microphone orb below to start talking.</li>
-                         <li>Detail your **User Name (Full Name)**, **Employee ID**, a **Ticket Title**, and a **Summary** of the issue.</li>
-                         <li>The AI will automatically log the ticket and assign ID starting from **0150**!</li>
-                      </ol>
-                   </div>
+              {loading ? (
+                 <div className="py-8 flex flex-col items-center justify-center space-y-3">
+                    <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                    <p className="text-xs text-slate-500 font-semibold">Loading AI Agent Configuration...</p>
+                 </div>
+              ) : !agentId ? (
+                 <div className="py-6 px-4 bg-red-50 border border-red-200 rounded-2xl text-center space-y-3 max-w-xs">
+                    <Info className="w-8 h-8 text-red-500 mx-auto" />
+                    <h3 className="text-sm font-bold text-red-700">Agent Not Configured</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed font-semibold">
+                       The ElevenLabs Agent ID is not set. Please configure it in the **System Settings** panel under your Admin account.
+                    </p>
+                 </div>
+              ) : ticketCreatedId ? (
+                 <div className="py-6 px-4 bg-green-50 border border-green-200 rounded-2xl text-center space-y-3 max-w-xs animate-pulse">
+                    <span className="text-4xl">🎉</span>
+                    <h3 className="text-md font-bold text-green-800">Ticket Logged!</h3>
+                    <p className="text-xs text-green-700 font-bold font-mono">Ticket ID: #{ticketCreatedId}</p>
+                    <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
+                       Your voice request has been processed and logged. Closing this window now...
+                    </p>
+                 </div>
+              ) : (
+                 <div className="w-full flex flex-col items-center space-y-6">
+                     <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl text-left space-y-2.5 max-w-sm shadow-sm">
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Instructions:</h4>
+                        <ol className="list-decimal list-inside text-xs text-slate-600 space-y-1.5 leading-relaxed font-semibold">
+                           <li>Click Start Call</li>
+                           <li>Click Accept the privacy terms</li>
+                           <li>Describe your problem to the AI , that will create ticket for you</li>
+                        </ol>
+                     </div>
 
-                    {/* Custom Centered Glowing Microphone Circle Wrapper */}
-                    <div className="relative w-28 h-28 flex items-center justify-center bg-slate-950 rounded-full border border-green-500/30 hover:border-green-400/60 shadow-[0_0_20px_rgba(34,197,94,0.15)] hover:shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all duration-300 group cursor-pointer overflow-visible">
-                       
-                       {/* Pulsing rings */}
-                       <div className="absolute inset-0 bg-green-500/10 rounded-full animate-ping pointer-events-none opacity-40"></div>
-                       <div className="absolute -inset-1 bg-gradient-to-tr from-green-500/20 to-emerald-400/20 rounded-full blur-sm opacity-60 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-
-                       {/* Central Micro Orb */}
-                       <div className="absolute inset-2 bg-slate-900 border border-green-500/40 rounded-full flex flex-col items-center justify-center space-y-1 z-10 transition-transform duration-300 group-hover:scale-105 shadow-inner">
-                          <span className="text-xl animate-bounce">🎙️</span>
-                          <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest group-hover:text-green-300 transition-colors">Start Call</span>
-                       </div>
-
-                       {/* Invisible ElevenLabs Widget Sitting Exactly On Top to Intercept Click events */}
-                       <div className="absolute inset-0 z-20 cursor-pointer overflow-visible">
-                          <elevenlabs-convai ref={widgetRef} agent-id={agentId} disable-banner="true"></elevenlabs-convai>
-                       </div>
-
+                    {/* Center Centered ElevenLabs Web Component Launcher */}
+                    <div className="w-full flex justify-center py-6 min-h-[90px]">
+                       <elevenlabs-convai ref={widgetRef} agent-id={agentId} disable-banner="true"></elevenlabs-convai>
                     </div>
-                </div>
-             )}
+                 </div>
+              )}
 
-             <div className="pt-2">
-                <button 
-                  onClick={onClose}
-                  className="px-5 py-2.5 text-xs font-medium text-slate-400 hover:text-white transition-colors"
-                >
-                  Close Window
-                </button>
-             </div>
+              <div className="pt-2">
+                 <button 
+                   onClick={onClose}
+                   className="px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                 >
+                   Close Window
+                 </button>
+              </div>
          </div>
       </div>
     </div>

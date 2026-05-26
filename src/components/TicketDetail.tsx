@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, getDoc, collection, query, where, onSnapshot, orderBy, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, query, where, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
 import { Ticket, Comment, User } from '../types';
 import { useAuth } from '../App';
-import { ArrowLeft, Clock, Send, Shield, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, Clock, Send, Shield } from 'lucide-react';
 
 export default function TicketDetail() {
   const { ticketId } = useParams();
@@ -19,7 +19,6 @@ export default function TicketDetail() {
 
   const [users, setUsers] = useState<User[]>([]);
 
-  // Load ticket
   useEffect(() => {
     if (!ticketId || !userProfile) return;
 
@@ -41,14 +40,12 @@ export default function TicketDetail() {
       const c = snapshot.docs.map(d => d.data() as Comment);
       c.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       
-      // Client-side filtering just in case rules are leaky, but rules should restrict
       const filtered = c.filter(comment => 
         userProfile.role !== 'end_user' || !comment.isInternal
       );
       
       setComments(filtered);
     }, (err) => {
-      // Don't throw to screen on comment load failure if rules just block.
       console.error(err);
     });
 
@@ -145,131 +142,247 @@ export default function TicketDetail() {
   if (!ticket) return <div className="p-8 text-slate-500">Ticket not found or access denied.</div>;
 
   return (
-    <div className="flex flex-col h-full bg-transparent">
-      <div className="bg-white/5 backdrop-blur-xl border-b border-white/10 px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between sticky top-0 z-10 gap-4">
+    <div className="flex flex-col h-screen bg-transparent">
+      {/* Top Header */}
+      <div className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center space-x-4">
-          <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white transition-colors">
+          <button onClick={() => navigate(-1)} className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white leading-tight">{ticket.title}</h1>
-            <p className="text-sm text-slate-400 font-mono mt-0.5">Ticket #{ticket.ticketId.slice(0, 8).toUpperCase()}</p>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight leading-tight">{ticket.title}</h1>
+            <div className="flex items-center space-x-2 mt-1">
+              <span className="text-xs text-slate-500 font-mono tracking-wider">Ticket #{ticket.ticketId.slice(0, 8).toUpperCase()}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
+              <span className={`px-2 py-0.5 text-[9px] uppercase font-extrabold tracking-wider rounded-full border ${
+                ticket.status === 'open' ? 'bg-green-50 text-green-700 border-green-200' :
+                ticket.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                ticket.status === 'resolved' ? 'bg-slate-100 text-slate-700 border-slate-200' :
+                'bg-slate-50 text-slate-600 border-slate-200'
+              }`}>
+                {ticket.status.replace('_', ' ')}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center space-x-3">
-          {userProfile?.role !== 'end_user' && (
-            <>
-               <div className="flex items-center space-x-2 bg-black/40 rounded-xl p-1 border border-white/10">
-                 <button 
-                   onClick={handleTimerToggle}
-                   className={`px-3 py-1.5 text-[11px] uppercase font-bold tracking-wider rounded-lg transition-all ${ticket.timerState === 'running' ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}
-                 >
-                   {ticket.timerState === 'running' ? 'Pause Timer' : 'Start Timer'}
-                 </button>
-                 <div className="px-3 py-1.5 text-sm font-mono text-slate-300 flex items-center">
-                    <Clock className="w-4 h-4 mr-1.5 opacity-50" />
-                    {Math.floor((ticket.totalSupportTimeSeconds || 0) / 60)}m {(ticket.totalSupportTimeSeconds || 0) % 60}s
-                 </div>
-               </div>
-               <select 
-                 className="bg-black/40 border border-white/10 rounded-xl text-sm px-4 py-2 text-white outline-none focus:ring-2 focus:ring-blue-500 appearance-none [&>option]:text-black"
-                 value={ticket.assignedTo}
-                 onChange={(e) => handleUpdateAssignment(e.target.value)}
-               >
-                 <option value="">Unassigned</option>
-                 {users.map(u => <option key={u.userId} value={u.userId}>{u.name} (EMP-{u.employeeId})</option>)}
-               </select>
-               <select 
-                 className="bg-blue-500/10 border border-blue-500/30 text-blue-400 font-medium rounded-xl text-sm px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 appearance-none [&>option]:text-black"
-                 value={ticket.status}
-                 onChange={(e) => handleUpdateStatus(e.target.value as Ticket['status'])}
-               >
-                 <option value="open">Open</option>
-                 <option value="in_progress">In Progress</option>
-                 <option value="resolved">Resolved</option>
-                 <option value="closed">Closed</option>
-               </select>
-            </>
-          )}
-          {userProfile?.role === 'end_user' && (
-             <span className="px-3 py-1 bg-white/10 border border-white/10 rounded-full text-[10px] uppercase font-bold tracking-wider text-slate-300">
-                {ticket.status.replace('_', ' ')}
-             </span>
-          )}
-        </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-8 flex flex-col space-y-6 max-w-5xl mx-auto w-full">
-        <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 p-6 shadow-xl">
-           <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">{ticket.description}</p>
-           <div className="mt-4 flex flex-wrap gap-4 text-[10px] uppercase tracking-widest text-slate-500 font-medium">
-             {ticket.creatorName && <span>User Name: {ticket.creatorName}</span>}
-             <span>Creator ID: {ticket.creatorUserId.slice(0, 8)}</span>
-             <span>EMP ID: {ticket.employeeId}</span>
-             <span>Created: {new Date(ticket.createdAt).toLocaleString()}</span>
-           </div>
-        </div>
+      {/* Main Two-Column Workspace */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        
+        {/* Left Column: Discussion, Description, Reply Form */}
+        <div className="flex-1 flex flex-col overflow-y-auto border-r border-slate-200">
+          
+          {/* Scrollable Panel Area */}
+          <div className="flex-1 p-6 lg:p-8 space-y-8 overflow-y-auto">
+            {/* Description Card */}
+            <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-3 animate-slide-up">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Issue Description</span>
+              <p className="text-slate-900 text-sm whitespace-pre-wrap leading-relaxed font-sans">{ticket.description}</p>
+            </div>
 
-        <div className="space-y-4 flex-1">
-           {comments.map(comment => (
-              <div key={comment.commentId} className={`flex ${comment.userId === userProfile?.userId ? 'justify-end' : 'justify-start'}`}>
-                 <div className={`max-w-[85%] rounded-3xl px-6 py-4 shadow-xl backdrop-blur-sm ${
-                    comment.isInternal ? 'bg-orange-500/20 border border-orange-500/30 text-orange-200 rounded-tl-sm' : 
-                    comment.userId === userProfile?.userId ? 'bg-blue-600/80 border border-blue-500/50 text-white rounded-tr-sm' : 
-                    'bg-white/10 border border-white/10 text-slate-200 rounded-tl-sm'
-                 }`}>
-                    <div className="flex items-center space-x-2 mb-2">
-                       <span className={`text-xs font-bold tracking-wide ${comment.userId === userProfile?.userId && !comment.isInternal ? 'text-blue-200' : 'text-slate-400'}`}>
-                          {comment.authorName}
-                       </span>
-                       {comment.isInternal && (
-                          <span className="flex items-center text-[9px] uppercase font-bold tracking-widest text-orange-300 bg-orange-500/30 px-2 py-0.5 rounded-full border border-orange-500/30">
-                             <Shield className="w-3 h-3 mr-1" /> Internal
-                          </span>
-                       )}
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{comment.text}</p>
-                    <div className={`text-[10px] uppercase tracking-wider font-medium mt-3 text-right ${comment.userId === userProfile?.userId && !comment.isInternal ? 'text-blue-300' : 'text-slate-500'}`}>
-                       {new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </div>
-                 </div>
+            {/* Conversation Feed */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Activity Feed & Comments</h3>
+                <span className="text-xs text-slate-400">{comments.length} Comment{comments.length !== 1 ? 's' : ''}</span>
               </div>
-           ))}
-        </div>
-      </div>
+              
+              <div className="space-y-4">
+                {comments.map((comment, index) => (
+                  <div 
+                    key={comment.commentId} 
+                    className={`flex ${comment.userId === userProfile?.userId ? 'justify-end' : 'justify-start'} animate-fade-in`}
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <div className={`max-w-[85%] rounded-2xl px-5 py-3.5 shadow-sm ${
+                      comment.isInternal 
+                        ? 'bg-amber-50 border border-amber-200 text-amber-900 rounded-tl-sm' 
+                        : comment.userId === userProfile?.userId 
+                          ? 'bg-[#0f172a] border border-slate-800 text-white rounded-tr-sm' 
+                          : 'bg-slate-100 border border-slate-200 text-slate-800 rounded-tl-sm'
+                    }`}>
+                      <div className="flex items-center justify-between gap-4 mb-1.5">
+                        <span className={`text-[11px] font-bold tracking-wide ${
+                          comment.userId === userProfile?.userId && !comment.isInternal 
+                            ? 'text-slate-300' 
+                            : 'text-slate-500'
+                        }`}>
+                          {comment.authorName}
+                        </span>
+                        {comment.isInternal && (
+                          <span className="flex items-center text-[8px] uppercase font-bold tracking-widest text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                            <Shield className="w-2.5 h-2.5 mr-1" /> Internal
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs leading-relaxed whitespace-pre-wrap">{comment.text}</p>
+                      <div className={`text-[9px] uppercase tracking-wider font-semibold text-right mt-2 ${
+                        comment.userId === userProfile?.userId && !comment.isInternal
+                          ? 'text-slate-400'
+                          : 'text-slate-400'
+                      }`}>
+                        {new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {comments.length === 0 && (
+                  <div className="text-center py-10 text-slate-400 text-xs font-semibold">
+                    No comments yet. Start the conversation below.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
-      <div className="bg-white/5 backdrop-blur-xl border-t border-white/10 p-5 sticky bottom-0">
-         <div className="max-w-5xl mx-auto">
-             {userProfile?.role !== 'end_user' && (
-                <div className="mb-3 flex items-center">
-                   <label className="flex items-center space-x-2 text-sm font-medium text-slate-400 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={isInternal} 
-                        onChange={(e) => setIsInternal(e.target.checked)}
-                        className="rounded border-white/20 bg-black/40 text-orange-500 focus:ring-orange-500"
-                      />
-                      <span>Add as Internal Note</span>
-                   </label>
+          {/* Reply Form Sticky Footer */}
+          <div className="bg-slate-50 border-t border-slate-200 p-5 backdrop-blur-md">
+            <div className="max-w-4xl mx-auto space-y-3">
+              {userProfile?.role !== 'end_user' && (
+                <div className="flex items-center">
+                  <label className="flex items-center space-x-2 text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={isInternal} 
+                      onChange={(e) => setIsInternal(e.target.checked)}
+                      className="rounded border-slate-200 bg-white text-[#0f172a] focus:ring-[#0f172a]/50 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span>Flag as Internal Note (Staff Only)</span>
+                  </label>
                 </div>
-             )}
-             <div className="flex items-end space-x-3 gap-2">
+              )}
+              <div className="flex items-end gap-3">
                 <textarea 
-                   rows={2}
-                   value={newComment}
-                   onChange={e => setNewComment(e.target.value)}
-                   className={`flex-1 rounded-2xl border p-4 text-sm focus:outline-none focus:ring-2 resize-none shadow-inner ${isInternal ? 'bg-orange-900/30 border-orange-500/50 text-orange-100 placeholder-orange-200/50 focus:ring-orange-500/50' : 'bg-black/40 border-white/10 text-white placeholder-slate-500 focus:ring-blue-500/50'}`}
-                   placeholder={isInternal ? "Write an internal note (only visible to staff)..." : "Write a reply..."}
+                  rows={2}
+                  value={newComment}
+                  onChange={e => setNewComment(e.target.value)}
+                  className={`flex-1 rounded-xl border p-3.5 text-xs focus:outline-none focus:ring-1 resize-none placeholder-slate-400 ${
+                    isInternal 
+                      ? 'bg-amber-50/50 border-amber-200 text-amber-900 focus:ring-amber-500/30' 
+                      : 'bg-white border-slate-200 text-slate-900 focus:ring-slate-300 focus:border-slate-400'
+                  }`}
+                  placeholder={isInternal ? "Write a private note only staff members can read..." : "Share an update or ask a question..."}
                 />
                 <button 
                   onClick={handleCreateComment}
                   disabled={!newComment.trim()}
-                  className={`p-4 rounded-2xl text-white transition-all disabled:opacity-50 flex-shrink-0 shadow-xl ${isInternal ? 'bg-orange-500 hover:bg-orange-400' : 'bg-blue-500 hover:bg-blue-400'}`}
+                  className={`p-3.5 rounded-xl text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-lg cursor-pointer ${
+                    isInternal 
+                      ? 'bg-amber-600 hover:bg-amber-500' 
+                      : 'bg-[#0f172a] hover:bg-[#1e293b]'
+                  }`}
                 >
-                  <Send className="w-5 h-5" />
+                  <Send className="w-4 h-4" />
                 </button>
-             </div>
-         </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Sidebar Metadata Panel */}
+        <div className="w-full lg:w-80 bg-slate-50 overflow-y-auto p-6 space-y-6 lg:border-l lg:border-slate-200">
+          <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2">Ticket Options</h2>
+          
+          {/* Status Select */}
+          <div className="space-y-2">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label>
+            {userProfile?.role !== 'end_user' ? (
+              <select 
+                className="w-full bg-white border border-slate-200 rounded-xl text-xs px-3 py-2.5 text-slate-900 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 appearance-none cursor-pointer"
+                value={ticket.status}
+                onChange={(e) => handleUpdateStatus(e.target.value as Ticket['status'])}
+              >
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            ) : (
+              <div className="bg-white border border-slate-200 px-3 py-2.5 rounded-xl text-xs font-semibold capitalize text-slate-900 flex items-center justify-between shadow-sm">
+                <span>{ticket.status.replace('_', ' ')}</span>
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+              </div>
+            )}
+          </div>
+
+          {/* Assignee Select */}
+          <div className="space-y-2">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assignee</label>
+            {userProfile?.role !== 'end_user' ? (
+              <select 
+                className="w-full bg-white border border-slate-200 rounded-xl text-xs px-3 py-2.5 text-slate-900 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 appearance-none cursor-pointer"
+                value={ticket.assignedTo}
+                onChange={(e) => handleUpdateAssignment(e.target.value)}
+              >
+                <option value="">Unassigned</option>
+                {users.map(u => (
+                  <option key={u.userId} value={u.userId}>
+                    {u.name} (EMP-{u.employeeId})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="bg-white border border-slate-200 px-3 py-2.5 rounded-xl text-xs text-slate-900 shadow-sm">
+                {ticket.assignedTo ? "Assigned Support Agent" : "Awaiting Assignment"}
+              </div>
+            )}
+          </div>
+
+          {/* Stopwatch Time Counter Widget (Support Engineers / Admins only) */}
+          {userProfile?.role !== 'end_user' && (
+            <div className="space-y-2 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Time Invested</label>
+              <div className="flex items-center justify-between mb-3 bg-slate-50 rounded-xl p-3 border border-slate-100 font-mono text-slate-800 text-sm">
+                <div className="flex items-center">
+                  <Clock className={`w-4 h-4 mr-2 text-slate-400 ${ticket.timerState === 'running' ? 'animate-pulse text-red-500' : ''}`} />
+                  <span>{Math.floor((ticket.totalSupportTimeSeconds || 0) / 60)}m {(ticket.totalSupportTimeSeconds || 0) % 60}s</span>
+                </div>
+                {ticket.timerState === 'running' && (
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                )}
+              </div>
+              <button 
+                onClick={handleTimerToggle}
+                className={`w-full py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all cursor-pointer ${
+                  ticket.timerState === 'running' 
+                    ? 'bg-red-50 text-white hover:bg-red-600' 
+                    : 'bg-[#0f172a] hover:bg-[#1e293b] text-white shadow-sm'
+                }`}
+              >
+                {ticket.timerState === 'running' ? 'Pause Session' : 'Resume Session'}
+              </button>
+            </div>
+          )}
+
+          {/* Ticket Information */}
+          <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 text-xs shadow-sm">
+            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Details</h4>
+            <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-400">Employee ID</span>
+              <span className="text-slate-900 font-semibold">{ticket.employeeId}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-400">Reporter</span>
+              <span className="text-slate-900 font-semibold truncate max-w-[140px]" title={ticket.creatorName}>{ticket.creatorName || "Voice Assistant"}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-400">Created</span>
+              <span className="text-slate-700 font-medium">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+            </div>
+            {ticket.updatedAt && (
+              <div className="flex justify-between py-1">
+                <span className="text-slate-400">Last Active</span>
+                <span className="text-slate-700 font-medium">{new Date(ticket.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+              </div>
+            )}
+          </div>
+
+        </div>
+
       </div>
     </div>
   );

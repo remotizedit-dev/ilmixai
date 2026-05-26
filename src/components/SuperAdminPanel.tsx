@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { useAuth } from '../App';
 import AltAdminPanel from './AltAdminPanel';
 import { Settings, Save } from 'lucide-react';
 import { SystemSettings } from '../types';
@@ -31,7 +30,6 @@ export default function SuperAdminPanel({ view = 'tickets' }: { view?: 'tickets'
     setLoading(true);
     try {
       await setDoc(doc(db, 'system', 'settings'), settings);
-      // Wait for WS server to pick up changes or notify user
     } catch(e) {
       handleFirestoreError(e, OperationType.UPDATE, 'system/settings');
     }
@@ -43,60 +41,60 @@ export default function SuperAdminPanel({ view = 'tickets' }: { view?: 'tickets'
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto w-full">
+    <div className="p-8 max-w-4xl mx-auto w-full animate-fade-in">
        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-white">System Settings</h2>
-          <p className="text-slate-400 mt-1">Configure global AI models, instructions, and integration settings.</p>
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">System Settings</h2>
+          <p className="text-slate-500 mt-1 text-xs">Configure global AI models, instructions, and integration settings.</p>
        </div>
 
-       <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 overflow-hidden text-sm flex flex-col">
-          <div className="p-6 border-b border-white/10 flex items-center space-x-3 bg-black/20">
-             <Settings className="w-5 h-5 text-blue-400" />
-             <h3 className="font-semibold text-white text-base">Model Configuration</h3>
+       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm backdrop-blur-md">
+          <div className="p-6 border-b border-slate-200 flex items-center space-x-3 bg-slate-50">
+             <Settings className="w-4 h-4 text-slate-500" />
+             <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Model Configuration</h3>
           </div>
           <div className="p-8 space-y-6">
              <div>
-                <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Gemini API Model / URL</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Gemini API Model / URL</label>
                 <input 
                   type="text" 
                   value={settings.geminiApiUrl} 
                   onChange={e => setSettings({...settings, geminiApiUrl: e.target.value})}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all font-mono"
                   placeholder="gemini-3.1-flash-live-preview"
                 />
              </div>
              
              <div>
-                <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">ElevenLabs Agent ID</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">ElevenLabs Agent ID</label>
                 <input 
                   type="text" 
                   value={settings.elevenlabsAgentId || ''} 
                   onChange={e => setSettings({...settings, elevenlabsAgentId: e.target.value})}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all font-mono"
                   placeholder="e.g. 2sY6z7..."
                 />
              </div>
 
-             <hr className="border-white/10" />
+             <hr className="border-slate-100" />
 
              <div>
-                <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">Initial Greeting Message</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Initial Greeting Message</label>
                 <input 
                   type="text" 
                   value={settings.initialMessage} 
                   onChange={e => setSettings({...settings, initialMessage: e.target.value})}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all"
                   placeholder="Hello! Can you describe your issue?"
                 />
              </div>
 
              <div>
-                <label className="block text-[11px] font-medium text-slate-400 uppercase mb-1.5">AI System Instructions (Prompting & Behavior)</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">AI System Instructions (Prompting & Behavior)</label>
                 <textarea 
-                  rows={4}
+                  rows={6}
                   value={settings.aiInstructions} 
                   onChange={e => setSettings({...settings, aiInstructions: e.target.value})}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 resize-none font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 resize-none font-mono transition-all leading-relaxed"
                   placeholder="System instructions for the model..."
                 />
              </div>
@@ -105,7 +103,7 @@ export default function SuperAdminPanel({ view = 'tickets' }: { view?: 'tickets'
                 <button 
                   onClick={handleSaveSettings}
                   disabled={loading}
-                  className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-400 text-white px-6 py-2.5 rounded-full shadow-xl transition-all font-medium disabled:opacity-50"
+                  className="flex items-center space-x-2 bg-[#0f172a] hover:bg-[#1e293b] text-white px-6 py-2.5 rounded-xl shadow-md transition-all text-xs font-bold uppercase tracking-wider cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Save className="w-4 h-4" />
                   <span>{loading ? 'Saving...' : 'Save Settings'}</span>
