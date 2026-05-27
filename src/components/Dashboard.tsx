@@ -15,9 +15,9 @@ export default function Dashboard() {
   if (!userProfile) return null;
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row relative z-10 w-full bg-transparent">
+    <div className="min-h-screen flex flex-col md:flex-row relative w-full bg-transparent">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-slate-50 border-r border-slate-200 flex flex-col z-20 flex-shrink-0 transition-all duration-300">
+      <aside className="w-full md:w-64 bg-slate-50 border-r border-slate-200 flex flex-col flex-shrink-0 transition-all duration-300">
         <div className="p-6 border-b border-slate-200 flex flex-col justify-center">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">ilmix <span className="text-blue-600">AI</span></h1>
           <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-bold">by Remotized IT</p>
@@ -27,8 +27,8 @@ export default function Dashboard() {
           <Link
             to="/dashboard"
             className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${location.pathname === '/dashboard'
-                ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
           >
             <LayoutDashboard className="w-5 h-5" />
@@ -39,8 +39,8 @@ export default function Dashboard() {
             <Link
               to="/dashboard/users"
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${location.pathname.includes('/users')
-                  ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
             >
               <Users className="w-5 h-5" />
@@ -52,8 +52,8 @@ export default function Dashboard() {
             <Link
               to="/dashboard/settings"
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${location.pathname.includes('/settings')
-                  ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-[#0f172a] text-white font-semibold shadow-[0_4px_12px_rgba(15,23,42,0.15)] scale-[1.01]'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
             >
               <Settings className="w-5 h-5" />

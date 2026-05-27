@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2, Info } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, getNextTicketId } from '../firebase';
@@ -23,7 +24,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           if (settingsSnap.exists() && settingsSnap.data().elevenlabsAgentId) {
             setAgentId(settingsSnap.data().elevenlabsAgentId);
           } else {
-            // Fallback to env var
             setAgentId(import.meta.env.VITE_ELEVENLABS_AGENT_ID || null);
           }
         }
@@ -36,7 +36,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
     loadConfig();
 
-    // Dynamically inject the ElevenLabs widget script if not already defined in registry or DOM
     const existingScript = document.querySelector('script[src*="elevenlabs.io"]');
     if (!existingScript && !customElements.get('elevenlabs-convai')) {
       const script = document.createElement('script');
@@ -46,7 +45,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
       document.body.appendChild(script);
     }
 
-    // Poller to hide "Powered by ElevenLabs" inside shadow DOM
     const interval = setInterval(() => {
       const widget = document.querySelector('elevenlabs-convai');
       if (widget && widget.shadowRoot) {
@@ -70,7 +68,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
           widget.shadowRoot.appendChild(style);
         }
 
-        // Target ONLY leaf anchor elements to prevent hiding parent container tags!
         const links = widget.shadowRoot.querySelectorAll('a');
         links.forEach((el: any) => {
           if (
@@ -90,7 +87,7 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
-  // Effect 2: Bind the ElevenLabs client tool triggers directly to the element and document
+  // Effect 2: Bind the ElevenLabs client tool triggers
   useEffect(() => {
     if (!agentId) return;
 
@@ -129,7 +126,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
             setTicketCreatedId(seqId);
           }
 
-          // Leave modal open briefly to show success feedback, then close
           setTimeout(() => {
             if (active && !isClosingRef.current) onClose();
           }, 4000);
@@ -139,7 +135,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
       }
     };
 
-    // Attach listeners to element, document, and window to be absolutely bulletproof
     const widget = widgetRef.current || document.querySelector('elevenlabs-convai');
     if (widget) {
       widget.addEventListener('elevenlabs-convai:call', handleWidgetCall);
@@ -159,8 +154,8 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
     };
   }, [agentId, userProfile, onClose]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
       <div className="bg-white border border-slate-200 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] w-full max-w-lg p-10 relative max-h-[90vh] overflow-y-auto animate-scale-up">
         {/* Top Close Button */}
         <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-700 transition-colors z-20 cursor-pointer">
@@ -225,4 +220,6 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
