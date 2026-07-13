@@ -76,39 +76,6 @@ export default function Login() {
         } catch (e) {
           handleFirestoreError(e, OperationType.CREATE, `users/${user.uid}`);
         }
-      } else {
-        // User already exists. Sync data from pending_users to keep Admin Dashboard overrides in sync!
-        if (user.email) {
-           const pendingDoc = await getDoc(doc(db, 'pending_users', user.email));
-           if (pendingDoc.exists()) {
-             const pendingData = pendingDoc.data();
-             const currentData = userDoc.data();
-             
-             let needsUpdate = false;
-             const updates: any = {};
-             
-             if (pendingData.name && currentData.name !== pendingData.name) {
-               updates.name = pendingData.name;
-               needsUpdate = true;
-             }
-             if (pendingData.role && currentData.role !== pendingData.role) {
-               updates.role = pendingData.role;
-               needsUpdate = true;
-             }
-             if (pendingData.employeeId && currentData.employeeId !== pendingData.employeeId) {
-               updates.employeeId = pendingData.employeeId;
-               needsUpdate = true;
-             }
-             
-             if (needsUpdate) {
-               try {
-                 await setDoc(doc(db, 'users', user.uid), updates, { merge: true });
-               } catch (e) {
-                 console.error("Failed to sync pending user updates:", e);
-               }
-             }
-           }
-        }
       }
       
       await refreshProfile(user.uid);

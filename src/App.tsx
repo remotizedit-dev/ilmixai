@@ -2,7 +2,7 @@ import { useEffect, useState, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router';
 import { onAuthStateChanged, User as FirebaseAuthUser } from 'firebase/auth';
 import { auth, db } from './firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Role, User } from './types';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -34,7 +34,43 @@ export default function App() {
     try {
       const userDoc = await getDoc(doc(db, 'users', targetUid));
       if (userDoc.exists()) {
-        setUserProfile(userDoc.data() as User);
+        let userData = userDoc.data() as User;
+        
+        // Background Sync with pending_users
+        if (userData.email) {
+          try {
+             const pendingDoc = await getDoc(doc(db, 'pending_users', userData.email.toLowerCase()));
+             if (pendingDoc.exists()) {
+               const pData = pendingDoc.data();
+               let needsUpdate = false;
+               const updates: any = {};
+               
+               if (pData.name && userData.name !== pData.name) {
+                 updates.name = pData.name;
+                 userData.name = pData.name;
+                 needsUpdate = true;
+               }
+               if (pData.role && userData.role !== pData.role) {
+                 updates.role = pData.role;
+                 userData.role = pData.role as Role;
+                 needsUpdate = true;
+               }
+               if (pData.employeeId && userData.employeeId !== pData.employeeId) {
+                 updates.employeeId = pData.employeeId;
+                 userData.employeeId = pData.employeeId;
+                 needsUpdate = true;
+               }
+               
+               if (needsUpdate) {
+                 await setDoc(doc(db, 'users', targetUid), updates, { merge: true });
+               }
+             }
+          } catch (syncErr) {
+             console.error("Silent sync failed", syncErr);
+          }
+        }
+        
+        setUserProfile(userData);
       } else {
         setUserProfile(null);
       }
