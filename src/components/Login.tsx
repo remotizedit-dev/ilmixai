@@ -41,6 +41,7 @@ export default function Login() {
         
         let role = 'end_user';
         let employeeId = `EMP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        let pendingName = '';
         
         if (!sysSetupDoc.exists()) {
           role = 'super_admin';
@@ -51,6 +52,7 @@ export default function Login() {
              if (pendingDoc.exists()) {
                role = pendingDoc.data().role;
                employeeId = pendingDoc.data().employeeId;
+               pendingName = pendingDoc.data().name || '';
              }
            }
         }
@@ -58,7 +60,7 @@ export default function Login() {
         const newUser = {
           userId: user.uid,
           email: user.email || '',
-          name: user.email?.split('@')[0] || 'New User',
+          name: pendingName || user.email?.split('@')[0] || 'New User',
           phoneNumber: '',
           employeeId,
           role,
@@ -73,6 +75,39 @@ export default function Login() {
           }
         } catch (e) {
           handleFirestoreError(e, OperationType.CREATE, `users/${user.uid}`);
+        }
+      } else {
+        // User already exists. Sync data from pending_users to keep Admin Dashboard overrides in sync!
+        if (user.email) {
+           const pendingDoc = await getDoc(doc(db, 'pending_users', user.email));
+           if (pendingDoc.exists()) {
+             const pendingData = pendingDoc.data();
+             const currentData = userDoc.data();
+             
+             let needsUpdate = false;
+             const updates: any = {};
+             
+             if (pendingData.name && currentData.name !== pendingData.name) {
+               updates.name = pendingData.name;
+               needsUpdate = true;
+             }
+             if (pendingData.role && currentData.role !== pendingData.role) {
+               updates.role = pendingData.role;
+               needsUpdate = true;
+             }
+             if (pendingData.employeeId && currentData.employeeId !== pendingData.employeeId) {
+               updates.employeeId = pendingData.employeeId;
+               needsUpdate = true;
+             }
+             
+             if (needsUpdate) {
+               try {
+                 await setDoc(doc(db, 'users', user.uid), updates, { merge: true });
+               } catch (e) {
+                 console.error("Failed to sync pending user updates:", e);
+               }
+             }
+           }
         }
       }
       
