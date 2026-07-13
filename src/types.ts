@@ -12,6 +12,7 @@ export interface User {
 
 export interface PendingUser {
   email: string;
+  name?: string;
   role: Role;
   employeeId: string;
   createdBy: string;

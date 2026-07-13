@@ -7,6 +7,8 @@ declare global {
         'elevenlabs-convai': React.DetailedHTMLProps<
           React.HTMLAttributes<HTMLElement> & {
             'agent-id'?: string | null;
+            'disable-banner'?: string | null;
+            'dynamic-variables'?: string | null;
           },
           HTMLElement
         >;

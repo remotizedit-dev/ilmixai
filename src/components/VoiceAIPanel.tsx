@@ -36,15 +36,7 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
     loadConfig();
 
-    // Dynamically inject the ElevenLabs widget script if not already defined in registry or DOM
-    const existingScript = document.querySelector('script[src*="elevenlabs.io"]');
-    if (!existingScript && !customElements.get('elevenlabs-convai')) {
-      const script = document.createElement('script');
-      script.src = "https://elevenlabs.io/convai-widget/index.js";
-      script.async = true;
-      script.type = "text/javascript";
-      document.body.appendChild(script);
-    }
+    // The ElevenLabs widget script is now injected in index.html to avoid CustomElementRegistry duplicate definition errors on remounts.
 
     // Poller to hide "Powered by ElevenLabs" inside shadow DOM
     const interval = setInterval(() => {
@@ -160,46 +152,46 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
   }, [agentId, userProfile, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] w-full max-w-lg p-10 relative max-h-[90vh] overflow-y-auto animate-scale-up">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030c1e]/80 backdrop-blur-md">
+      <div className="bg-[#091124] border border-white/10 rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] w-full max-w-lg p-10 relative max-h-[90vh] overflow-y-auto animate-scale-up">
          {/* Top Close Button */}
-         <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-700 transition-colors z-20 cursor-pointer">
+         <button onClick={onClose} className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors z-20 cursor-pointer">
             <X className="w-5 h-5" />
          </button>
 
          <div className="text-center space-y-6 mt-4 flex flex-col items-center">
               <div>
-                 <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">ilmix <span className="text-blue-600">AI</span></h2>
-                 <p className="text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-bold">by Remotized IT</p>
+                 <h2 className="text-2xl font-extrabold tracking-tight text-white">ilmix <span className="text-blue-500">AI</span></h2>
+                 <p className="text-[10px] uppercase tracking-widest text-white/50 mt-1 font-bold">by Remotized IT</p>
               </div>
 
               {loading ? (
                  <div className="py-8 flex flex-col items-center justify-center space-y-3">
-                    <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-                    <p className="text-xs text-slate-500 font-semibold">Loading AI Agent Configuration...</p>
+                    <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+                    <p className="text-xs text-white/70 font-semibold">Loading AI Agent Configuration...</p>
                  </div>
               ) : !agentId ? (
-                 <div className="py-6 px-4 bg-red-50 border border-red-200 rounded-2xl text-center space-y-3 max-w-xs">
-                    <Info className="w-8 h-8 text-red-500 mx-auto" />
-                    <h3 className="text-sm font-bold text-red-700">Agent Not Configured</h3>
-                    <p className="text-xs text-slate-500 leading-relaxed font-semibold">
+                 <div className="py-6 px-4 bg-red-950/30 border border-red-500/30 rounded-2xl text-center space-y-3 max-w-xs">
+                    <Info className="w-8 h-8 text-red-400 mx-auto" />
+                    <h3 className="text-sm font-bold text-red-200">Agent Not Configured</h3>
+                    <p className="text-xs text-red-200/70 leading-relaxed font-semibold">
                        The ElevenLabs Agent ID is not set. Please configure it in the **System Settings** panel under your Admin account.
                     </p>
                  </div>
               ) : ticketCreatedId ? (
-                 <div className="py-6 px-4 bg-green-50 border border-green-200 rounded-2xl text-center space-y-3 max-w-xs animate-pulse">
+                 <div className="py-6 px-4 bg-green-950/30 border border-green-500/30 rounded-2xl text-center space-y-3 max-w-xs animate-pulse">
                     <span className="text-4xl">🎉</span>
-                    <h3 className="text-md font-bold text-green-800">Ticket Logged!</h3>
-                    <p className="text-xs text-green-700 font-bold font-mono">Ticket ID: #{ticketCreatedId}</p>
-                    <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
+                    <h3 className="text-md font-bold text-green-400">Ticket Logged!</h3>
+                    <p className="text-xs text-green-300 font-bold font-mono">Ticket ID: #{ticketCreatedId}</p>
+                    <p className="text-[10px] text-green-200/70 leading-relaxed font-semibold">
                        Your voice request has been processed and logged. Closing this window now...
                     </p>
                  </div>
               ) : (
                  <div className="w-full flex flex-col items-center space-y-6">
-                     <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl text-left space-y-2.5 max-w-sm shadow-sm">
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Instructions:</h4>
-                        <ol className="list-decimal list-inside text-xs text-slate-600 space-y-1.5 leading-relaxed font-semibold">
+                     <div className="p-5 bg-white/5 border border-white/10 rounded-2xl text-left space-y-2.5 max-w-sm">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Instructions:</h4>
+                        <ol className="list-decimal list-inside text-xs text-white/70 space-y-1.5 leading-relaxed font-semibold">
                            <li>Click Start Call</li>
                            <li>Click Accept the privacy terms</li>
                            <li>Describe your problem to the AI , that will create ticket for you</li>
@@ -208,7 +200,16 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
 
                     {/* Center Centered ElevenLabs Web Component Launcher */}
                     <div className="w-full flex justify-center py-6 min-h-[90px]">
-                       <elevenlabs-convai ref={widgetRef} agent-id={agentId} disable-banner="true"></elevenlabs-convai>
+                       <elevenlabs-convai 
+                         ref={widgetRef} 
+                         agent-id={agentId} 
+                         disable-banner="true"
+                         dynamic-variables={JSON.stringify({
+                           user_name: userProfile?.name || "Guest User",
+                           employee_id: userProfile?.employeeId || "Unknown",
+                           user_email: userProfile?.email || "Unknown"
+                         })}
+                       ></elevenlabs-convai>
                     </div>
                  </div>
               )}
@@ -216,7 +217,7 @@ export default function VoiceAIPanel({ onClose }: { onClose: () => void }) {
               <div className="pt-2">
                  <button 
                    onClick={onClose}
-                   className="px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                   className="px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white/50 hover:text-white transition-colors cursor-pointer"
                  >
                    Close Window
                  </button>

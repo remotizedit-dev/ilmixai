@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import SupportEngineerPanel from './SupportEngineerPanel';
-import { collection, query, onSnapshot, setDoc, doc } from 'firebase/firestore';
+import { collection, query, onSnapshot, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { PendingUser } from '../types';
 import { useAuth } from '../App';
-import { Mail, Plus } from 'lucide-react';
+import { Mail, Plus, Trash2, User as UserIcon } from 'lucide-react';
 
 export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' | 'users' }) {
   const { userProfile } = useAuth();
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<'alt_admin' | 'support_engineer' | 'end_user'>('end_user');
   const [newEmpId, setNewEmpId] = useState('');
 
@@ -30,6 +31,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
     try {
       await setDoc(doc(db, 'pending_users', newEmail.toLowerCase()), {
         email: newEmail.toLowerCase(),
+        name: newName,
         role: newRole,
         employeeId: newEmpId,
         createdBy: userProfile.userId,
@@ -37,10 +39,20 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
       });
       setShowAdd(false);
       setNewEmail('');
+      setNewName('');
       setNewEmpId('');
       setNewRole('end_user');
     } catch(e) {
       handleFirestoreError(e, OperationType.CREATE, `pending_users/${newEmail}`);
+    }
+  };
+
+  const handleDeleteUser = async (email: string) => {
+    if (!confirm(`Are you sure you want to remove authorization for ${email}?`)) return;
+    try {
+      await deleteDoc(doc(db, 'pending_users', email));
+    } catch(e) {
+      handleFirestoreError(e, OperationType.DELETE, `pending_users/${email}`);
     }
   };
 
@@ -53,7 +65,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">User Management</h2>
-          <p className="text-slate-500 mt-1 text-xs">Pre-authorize user email accounts and assign system roles.</p>
+          <p className="text-slate-500 mt-1 text-xs">Pre-authorize user accounts and assign system roles.</p>
         </div>
         
         <button 
@@ -65,15 +77,15 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
         </button>
       </div>
 
-      {/* Modern Flat Data Grid (No Box Card Wrapper) */}
       <div className="overflow-x-auto w-full">
          <table className="w-full text-left text-sm text-slate-600 border-collapse">
            <thead className="border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
              <tr>
                <th className="px-4 py-3 pb-4">Email Address</th>
+               <th className="px-4 py-3 pb-4">Name</th>
                <th className="px-4 py-3 pb-4">Employee ID</th>
                <th className="px-4 py-3 pb-4">Authorized Role</th>
-               <th className="px-4 py-3 pb-4 text-right">Created At</th>
+               <th className="px-4 py-3 pb-4 text-right">Actions</th>
              </tr>
            </thead>
            <tbody className="divide-y divide-slate-100">
@@ -87,6 +99,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
                     <Mail className="w-4 h-4 mr-3 text-slate-400 opacity-60" />
                     {u.email}
                   </td>
+                  <td className="px-4 py-4 text-xs font-medium text-slate-700">{u.name || '-'}</td>
                   <td className="px-4 py-4 font-mono text-xs text-slate-600">{u.employeeId}</td>
                   <td className="px-4 py-4">
                      <span className={`px-2.5 py-1 uppercase text-[9px] tracking-wider font-extrabold rounded-full border ${
@@ -97,12 +110,20 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
                         {u.role.replace('_', ' ')}
                      </span>
                   </td>
-                  <td className="px-4 py-4 text-right text-xs text-slate-500">{new Date(u.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-4 text-right">
+                    <button 
+                      onClick={() => handleDeleteUser(u.email)}
+                      className="text-red-400 hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded-lg cursor-pointer inline-flex"
+                      title="Remove User Authorization"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-slate-400 text-xs font-medium">
+                  <td colSpan={5} className="px-4 py-12 text-center text-slate-400 text-xs font-medium">
                     No authorized email profiles found. Pre-authorize a new user above.
                   </td>
                 </tr>
@@ -115,7 +136,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md p-8 animate-scale-up">
                <h3 className="text-md font-bold text-slate-900 uppercase tracking-wider mb-2">Authorize New User</h3>
-               <p className="text-slate-500 text-xs mb-6 font-medium">Pre-configure system accounts. Users must sign up using this Google email address.</p>
+               <p className="text-slate-500 text-xs mb-6 font-medium">Pre-configure system accounts. Users must sign up using this email address.</p>
                <div className="space-y-4">
                   <div>
                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Email Address <span className="text-red-400">*</span></label>
@@ -124,6 +145,15 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
                        placeholder="user@company.com"
                        value={newEmail} onChange={e => setNewEmail(e.target.value)}
                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all font-mono"
+                     />
+                  </div>
+                  <div>
+                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Full Name</label>
+                     <input 
+                       type="text" 
+                       placeholder="e.g. John Doe"
+                       value={newName} onChange={e => setNewName(e.target.value)}
+                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all"
                      />
                   </div>
                   <div>
