@@ -4,7 +4,7 @@ import { collection, query, onSnapshot, setDoc, doc, deleteDoc } from 'firebase/
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { PendingUser } from '../types';
 import { useAuth } from '../App';
-import { Mail, Plus, Trash2, User as UserIcon } from 'lucide-react';
+import { Mail, Plus, Trash2, Pencil, User as UserIcon } from 'lucide-react';
 
 export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' | 'users' }) {
   const { userProfile } = useAuth();
@@ -14,6 +14,8 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<'alt_admin' | 'support_engineer' | 'end_user'>('end_user');
   const [newEmpId, setNewEmpId] = useState('');
+
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (view !== 'users') return;
@@ -26,6 +28,24 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
     return () => unsubscribe();
   }, [view]);
 
+  const openAddModal = () => {
+    setIsEditing(false);
+    setNewEmail('');
+    setNewName('');
+    setNewEmpId('');
+    setNewRole('end_user');
+    setShowAdd(true);
+  };
+
+  const handleEditClick = (user: PendingUser) => {
+    setIsEditing(true);
+    setNewEmail(user.email);
+    setNewName(user.name || '');
+    setNewEmpId(user.employeeId);
+    setNewRole(user.role);
+    setShowAdd(true);
+  };
+
   const handleAddUser = async () => {
     if (!newEmail || !newEmpId || !userProfile) return;
     try {
@@ -36,14 +56,15 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
         employeeId: newEmpId,
         createdBy: userProfile.userId,
         createdAt: new Date().toISOString()
-      });
+      }, { merge: true }); // Use merge: true to update existing records gracefully
       setShowAdd(false);
       setNewEmail('');
       setNewName('');
       setNewEmpId('');
       setNewRole('end_user');
+      setIsEditing(false);
     } catch(e) {
-      handleFirestoreError(e, OperationType.CREATE, `pending_users/${newEmail}`);
+      handleFirestoreError(e, isEditing ? OperationType.UPDATE : OperationType.CREATE, `pending_users/${newEmail}`);
     }
   };
 
@@ -69,7 +90,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
         </div>
         
         <button 
-          onClick={() => setShowAdd(true)}
+          onClick={openAddModal}
           className="flex items-center space-x-2 bg-[#0f172a] hover:bg-[#1e293b] text-white px-5 py-2.5 rounded-xl shadow-md transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
         >
           <Plus className="w-4 h-4" />
@@ -112,6 +133,13 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
                   </td>
                   <td className="px-4 py-4 text-right">
                     <button 
+                      onClick={() => handleEditClick(u)}
+                      className="text-blue-500 hover:text-blue-700 transition-colors p-1.5 hover:bg-blue-50 rounded-lg cursor-pointer inline-flex mr-1"
+                      title="Edit User Info"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button 
                       onClick={() => handleDeleteUser(u.email)}
                       className="text-red-400 hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded-lg cursor-pointer inline-flex"
                       title="Remove User Authorization"
@@ -135,7 +163,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
       {showAdd && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md p-8 animate-scale-up">
-               <h3 className="text-md font-bold text-slate-900 uppercase tracking-wider mb-2">Authorize New User</h3>
+               <h3 className="text-md font-bold text-slate-900 uppercase tracking-wider mb-2">{isEditing ? 'Edit User' : 'Authorize New User'}</h3>
                <p className="text-slate-500 text-xs mb-6 font-medium">Pre-configure system accounts. Users must sign up using this email address.</p>
                <div className="space-y-4">
                   <div>
@@ -143,8 +171,9 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
                      <input 
                        type="email" 
                        placeholder="user@company.com"
+                       disabled={isEditing}
                        value={newEmail} onChange={e => setNewEmail(e.target.value)}
-                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all font-mono"
+                       className={`w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:border-slate-400 focus:ring-1 focus:ring-slate-300 outline-none text-slate-900 placeholder-slate-400 transition-all font-mono ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                      />
                   </div>
                   <div>
@@ -178,7 +207,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
                         </select>
                      </div>
                   </div>
-                  <div className="pt-4 flex items-center justify-end space-x-3">
+                   <div className="pt-4 flex items-center justify-end space-x-3">
                      <button 
                        onClick={() => setShowAdd(false)} 
                        className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
@@ -190,7 +219,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
                        disabled={!newEmail || !newEmpId}
                        className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-[#0f172a] hover:bg-[#1e293b] shadow-md rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                      >
-                       Authorize
+                       {isEditing ? 'Save Changes' : 'Authorize'}
                      </button>
                   </div>
                </div>
