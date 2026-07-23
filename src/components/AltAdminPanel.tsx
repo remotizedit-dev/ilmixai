@@ -12,7 +12,7 @@ export default function AltAdminPanel({ view = 'tickets' }: { view?: 'tickets' |
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
-  const [newRole, setNewRole] = useState<'alt_admin' | 'support_engineer' | 'end_user'>('end_user');
+  const [newRole, setNewRole] = useState<PendingUser['role']>('end_user');
   const [newEmpId, setNewEmpId] = useState('');
 
   const [isEditing, setIsEditing] = useState(false);

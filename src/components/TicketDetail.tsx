@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, collection, query, where, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
-import { Ticket, Comment, User } from '../types';
+import { Ticket, Comment, User, PendingUser } from '../types';
 import { useAuth } from '../App';
-import { ArrowLeft, Clock, Send, Shield } from 'lucide-react';
+import { ArrowLeft, Clock, Send, Shield, Pencil, Check, X, Search } from 'lucide-react';
 
 export default function TicketDetail() {
   const { ticketId } = useParams();
@@ -17,7 +17,16 @@ export default function TicketDetail() {
   const [isInternal, setIsInternal] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [staffUsers, setStaffUsers] = useState<User[]>([]);
+  const [allUsersList, setAllUsersList] = useState<User[]>([]);
+  const [pendingUsersList, setPendingUsersList] = useState<PendingUser[]>([]);
+  const [employeeMap, setEmployeeMap] = useState<Record<string, string>>({});
+  const [allEmployeesList, setAllEmployeesList] = useState<{ employeeId: string; name: string }[]>([]);
+
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [isCustomEmpId, setIsCustomEmpId] = useState(false);
+  const [customEmpIdInput, setCustomEmpIdInput] = useState('');
+  const [empSearchQuery, setEmpSearchQuery] = useState('');
 
   useEffect(() => {
     if (!ticketId || !userProfile) return;
@@ -49,19 +58,56 @@ export default function TicketDetail() {
       console.error(err);
     });
 
-    let unsubscribeUsers: any = null;
-    if (userProfile.role !== 'end_user') {
-        unsubscribeUsers = onSnapshot(query(collection(db, 'users'), where('role', 'in', ['support_engineer', 'super_admin', 'alt_admin'])), (snap) => {
-            setUsers(snap.docs.map(d => d.data() as User));
-        });
-    }
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+      const uList = snap.docs.map(d => d.data() as User);
+      setAllUsersList(uList);
+      const staff = uList.filter(u => ['support_engineer', 'super_admin', 'alt_admin'].includes(u.role));
+      setStaffUsers(staff);
+    });
+
+    const unsubPending = onSnapshot(collection(db, 'pending_users'), (snap) => {
+      const pList = snap.docs.map(d => d.data() as PendingUser);
+      setPendingUsersList(pList);
+    });
 
     return () => {
       unsubscribeTicket();
       unsubscribeComments();
-      if (unsubscribeUsers) unsubscribeUsers();
+      unsubUsers();
+      unsubPending();
     };
   }, [ticketId, userProfile]);
+
+  useEffect(() => {
+    const map: Record<string, string> = {};
+    const list: { employeeId: string; name: string }[] = [];
+    const seenEmpIds = new Set<string>();
+
+    allUsersList.forEach(u => {
+      if (u.employeeId) {
+        if (u.name) map[u.employeeId] = u.name;
+        if (!seenEmpIds.has(u.employeeId)) {
+          seenEmpIds.add(u.employeeId);
+          list.push({ employeeId: u.employeeId, name: u.name });
+        }
+      }
+    });
+
+    pendingUsersList.forEach(p => {
+      if (p.employeeId) {
+        if (p.name && !map[p.employeeId]) map[p.employeeId] = p.name;
+        if (!seenEmpIds.has(p.employeeId)) {
+          seenEmpIds.add(p.employeeId);
+          list.push({ employeeId: p.employeeId, name: p.name || p.email });
+        }
+      }
+    });
+
+    list.sort((a, b) => a.employeeId.localeCompare(b.employeeId));
+
+    setEmployeeMap(map);
+    setAllEmployeesList(list);
+  }, [allUsersList, pendingUsersList]);
 
   const handleCreateComment = async () => {
     if (!newComment.trim() || !ticketId || !userProfile) return;
@@ -96,6 +142,50 @@ export default function TicketDetail() {
      } catch(e) {
        handleFirestoreError(e, OperationType.UPDATE, `tickets/${ticket.ticketId}`);
      }
+  };
+
+  const handleUpdateEmployeeId = async (newEmpId: string) => {
+    if (!ticket || !userProfile || userProfile.role === 'end_user' || !newEmpId.trim()) return;
+    try {
+      await updateDoc(doc(db, 'tickets', ticket.ticketId), {
+        employeeId: newEmpId.trim(),
+        updatedAt: new Date().toISOString()
+      });
+      setIsCustomEmpId(false);
+      setCustomEmpIdInput('');
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `tickets/${ticket.ticketId}`);
+    }
+  };
+
+  const handleUpdateCreatedDate = async (localDatetimeStr: string) => {
+    if (!ticket || !userProfile || userProfile.role === 'end_user' || !localDatetimeStr) return;
+    try {
+      const parsedDate = new Date(localDatetimeStr);
+      if (isNaN(parsedDate.getTime())) return;
+      await updateDoc(doc(db, 'tickets', ticket.ticketId), {
+        createdAt: parsedDate.toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `tickets/${ticket.ticketId}`);
+    }
+  };
+
+  const formatDatetimeLocal = (isoString: string) => {
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n: number) => n < 10 ? '0' + n : String(n);
+      const year = d.getFullYear();
+      const month = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hours = pad(d.getHours());
+      const minutes = pad(d.getMinutes());
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (e) {
+      return '';
+    }
   };
 
   const handleUpdateStatus = async (newStatus: Ticket['status']) => {
@@ -311,20 +401,22 @@ export default function TicketDetail() {
             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assignee</label>
             {userProfile?.role !== 'end_user' ? (
               <select 
-                className="w-full bg-white border border-slate-200 rounded-xl text-xs px-3 py-2.5 text-slate-900 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 appearance-none cursor-pointer"
-                value={ticket.assignedTo}
+                className="w-full bg-white border border-slate-200 rounded-xl text-xs px-3 py-2.5 text-slate-900 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 appearance-none cursor-pointer font-medium"
+                value={ticket.assignedTo || ""}
                 onChange={(e) => handleUpdateAssignment(e.target.value)}
               >
                 <option value="">Unassigned</option>
-                {users.map(u => (
+                {staffUsers.map(u => (
                   <option key={u.userId} value={u.userId}>
                     {u.name} (EMP-{u.employeeId})
                   </option>
                 ))}
               </select>
             ) : (
-              <div className="bg-white border border-slate-200 px-3 py-2.5 rounded-xl text-xs text-slate-900 shadow-sm">
-                {ticket.assignedTo ? "Assigned Support Agent" : "Awaiting Assignment"}
+              <div className="bg-white border border-slate-200 px-3 py-2.5 rounded-xl text-xs text-slate-900 shadow-sm font-medium">
+                {ticket.assignedTo 
+                  ? (staffUsers.find(u => u.userId === ticket.assignedTo)?.name || "Assigned Support Agent") 
+                  : "Unassigned"}
               </div>
             )}
           </div>
@@ -360,21 +452,151 @@ export default function TicketDetail() {
 
           {/* Ticket Information */}
           <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 text-xs shadow-sm">
-            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Details</h4>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-400">Employee ID</span>
-              <span className="text-slate-900 font-semibold">{ticket.employeeId}</span>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Details</h4>
+              {userProfile?.role !== 'end_user' && (
+                <button 
+                  onClick={() => setIsEditingDetails(!isEditingDetails)}
+                  className="text-blue-600 hover:text-blue-800 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Pencil className="w-3 h-3" />
+                  <span>{isEditingDetails ? 'Done' : 'Edit'}</span>
+                </button>
+              )}
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-100">
+
+            {/* Employee ID */}
+            <div className="py-1.5 border-b border-slate-100 space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Employee ID</span>
+                {!isEditingDetails ? (
+                  <span className="text-slate-900 font-semibold font-mono">
+                    {ticket.employeeId}
+                  </span>
+                ) : null}
+              </div>
+              {isEditingDetails && userProfile?.role !== 'end_user' && (
+                <div className="pt-1 space-y-2">
+                  {!isCustomEmpId ? (
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                        <input 
+                          type="text"
+                          value={empSearchQuery}
+                          onChange={(e) => setEmpSearchQuery(e.target.value)}
+                          placeholder="Search ID or Name..."
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs pl-8 pr-2.5 py-1.5 text-slate-900 outline-none focus:border-slate-400"
+                        />
+                      </div>
+                      <select
+                        value={ticket.employeeId}
+                        onChange={(e) => {
+                          if (e.target.value === '__custom__') {
+                            setIsCustomEmpId(true);
+                            setCustomEmpIdInput('');
+                          } else {
+                            handleUpdateEmployeeId(e.target.value);
+                          }
+                        }}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs px-2.5 py-1.5 text-slate-900 outline-none focus:border-slate-400 font-mono cursor-pointer"
+                      >
+                        {allEmployeesList
+                          .filter(emp => 
+                            emp.employeeId.toLowerCase().includes(empSearchQuery.toLowerCase()) ||
+                            emp.name.toLowerCase().includes(empSearchQuery.toLowerCase())
+                          )
+                          .map(emp => (
+                            <option key={emp.employeeId} value={emp.employeeId}>
+                              {emp.employeeId} - {emp.name}
+                            </option>
+                          ))
+                        }
+                        {!allEmployeesList.some(e => e.employeeId === ticket.employeeId) && (
+                          <option value={ticket.employeeId}>{ticket.employeeId}</option>
+                        )}
+                        <option value="__custom__">+ Enter Custom ID...</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="text"
+                        value={customEmpIdInput}
+                        onChange={(e) => setCustomEmpIdInput(e.target.value)}
+                        placeholder="Enter Employee ID..."
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-400 font-mono"
+                      />
+                      <button
+                        onClick={() => {
+                          if (customEmpIdInput.trim()) {
+                            handleUpdateEmployeeId(customEmpIdInput);
+                          }
+                        }}
+                        className="bg-[#0f172a] text-white p-1.5 rounded-lg text-xs hover:bg-[#1e293b] cursor-pointer"
+                        title="Save Employee ID"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setIsCustomEmpId(false)}
+                        className="bg-slate-100 text-slate-500 p-1.5 rounded-lg text-xs hover:bg-slate-200 cursor-pointer"
+                        title="Cancel Custom Entry"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Employee Name */}
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-400">Employee Name</span>
+              <span className="text-slate-900 font-semibold truncate max-w-[140px]" title={employeeMap[ticket.employeeId] || ticket.creatorName || '-'}>
+                {employeeMap[ticket.employeeId] || ticket.creatorName || "-"}
+              </span>
+            </div>
+
+            {/* Reporter Name */}
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
               <span className="text-slate-400">Reporter</span>
               <span className="text-slate-900 font-semibold truncate max-w-[140px]" title={ticket.creatorName}>{ticket.creatorName || "Voice Assistant"}</span>
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-400">Created</span>
-              <span className="text-slate-700 font-medium">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+
+            {/* Created Date */}
+            <div className="py-1.5 border-b border-slate-100 space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Created</span>
+                {!isEditingDetails ? (
+                  <span className="text-slate-700 font-medium">
+                    {new Date(ticket.createdAt).toLocaleString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                ) : null}
+              </div>
+              {isEditingDetails && userProfile?.role !== 'end_user' && (
+                <div className="pt-1">
+                  <input 
+                    type="datetime-local"
+                    value={formatDatetimeLocal(ticket.createdAt)}
+                    onChange={(e) => {
+                      if (e.target.value) handleUpdateCreatedDate(e.target.value);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs px-2.5 py-1.5 text-slate-900 outline-none focus:border-slate-400 cursor-pointer"
+                  />
+                </div>
+              )}
             </div>
+
             {ticket.updatedAt && (
-              <div className="flex justify-between py-1">
+              <div className="flex justify-between py-1.5">
                 <span className="text-slate-400">Last Active</span>
                 <span className="text-slate-700 font-medium">{new Date(ticket.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>

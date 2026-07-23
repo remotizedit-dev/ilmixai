@@ -32,10 +32,11 @@ export interface Ticket {
   status: TicketStatus;
   assignedTo: string; // userId of support engineer
   createdAt: string;
-  closedAt: string;
+  closedAt?: string;
+  updatedAt?: string;
   totalSupportTimeSeconds: number;
   timerState: TimerState;
-  timerLastStartedAt: string;
+  timerLastStartedAt?: string;
 }
 
 export interface Comment {

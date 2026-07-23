@@ -11,14 +11,14 @@ interface AuthContextType {
   currentUser: FirebaseAuthUser | null;
   userProfile: User | null;
   loading: boolean;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: (uid?: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   userProfile: null,
   loading: true,
-  refreshProfile: async () => {},
+  refreshProfile: async (_uid?: string) => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
