@@ -4,7 +4,7 @@ import { db, handleFirestoreError, OperationType, getNextTicketId } from '../fir
 import { useAuth } from '../App';
 import { Ticket, User, PendingUser } from '../types';
 import { useNavigate } from 'react-router';
-import { Plus, Search, Upload, FileText, Loader2, Calendar, Filter, X } from 'lucide-react';
+import { Plus, Search, Upload, FileText, Loader2, Calendar, Filter, X, Camera, RefreshCw, ChevronDown } from 'lucide-react';
 
 export default function SupportEngineerPanel() {
   const { userProfile } = useAuth();
@@ -31,7 +31,8 @@ export default function SupportEngineerPanel() {
   const [newDesc, setNewDesc] = useState('');
   const [newCreatedAt, setNewCreatedAt] = useState('');
 
-  // OCR Upload State
+  // OCR Upload & Dropdown State
+  const [showOcrDropdown, setShowOcrDropdown] = useState(false);
   const [isAnalyzingDoc, setIsAnalyzingDoc] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [showOcrModal, setShowOcrModal] = useState(false);
@@ -39,6 +40,96 @@ export default function SupportEngineerPanel() {
   const [ocrTitle, setOcrTitle] = useState('');
   const [ocrDesc, setOcrDesc] = useState('');
   const [ocrCreatedAt, setOcrCreatedAt] = useState('');
+
+  // Camera Modal & Live Stream State
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  const startCamera = async (mode: 'environment' | 'user' = 'environment') => {
+    setCameraError(null);
+    setShowCameraModal(true);
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err: any) {
+      console.error("Camera access error:", err);
+      setCameraError(err.message || "Failed to access camera. Please allow camera permissions in your browser.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    setShowCameraModal(false);
+  };
+
+  const toggleCamera = () => {
+    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextMode);
+    startCamera(nextMode);
+  };
+
+  const captureCameraPhoto = async () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1200;
+    canvas.height = video.videoHeight || 900;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const base64String = dataUrl.split(',')[1];
+      stopCamera();
+
+      setIsAnalyzingDoc(true);
+      setOcrError(null);
+
+      try {
+        const response = await fetch('/api/analyze-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileData: base64String, mimeType: 'image/jpeg' })
+        });
+
+        const rawText = await response.text();
+        let json: any;
+        try {
+          json = JSON.parse(rawText);
+        } catch {
+          setOcrError('Server returned non-JSON response.');
+          return;
+        }
+
+        if (json.status === 'success' && json.data) {
+          setOcrEmpId(json.data.employeeId || '');
+          setOcrTitle(json.data.title || 'Camera Document Ticket');
+          setOcrDesc(json.data.description || '');
+          setOcrCreatedAt(json.data.createdAt ? json.data.createdAt.slice(0, 16) : '');
+          setShowOcrModal(true);
+        } else {
+          setOcrError(json.message || 'Failed to extract text from photo.');
+        }
+      } catch (err: any) {
+        setOcrError(err.message || 'Error processing photo.');
+      } finally {
+        setIsAnalyzingDoc(false);
+      }
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'tickets'));
@@ -350,28 +441,71 @@ export default function SupportEngineerPanel() {
               </button>
            </div>
            
-           <button 
-             onClick={() => fileInputRef.current?.click()}
-             disabled={isAnalyzingDoc}
-             className="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm transition-all text-xs font-bold uppercase tracking-wider cursor-pointer disabled:opacity-50"
-             title="Upload PDF, PNG or JPEG document for AI ticket parsing"
-           >
-             {isAnalyzingDoc ? (
-               <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-             ) : (
-               <Upload className="w-4 h-4 text-blue-600" />
-             )}
-             <span>{isAnalyzingDoc ? 'Analyzing Doc...' : 'OCR Ticket'}</span>
-           </button>
+            {/* Unified Upload OCR Action Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowOcrDropdown(!showOcrDropdown)}
+                disabled={isAnalyzingDoc}
+                className="flex items-center space-x-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-700 border border-blue-200 px-4 py-2.5 rounded-xl shadow-sm transition-all text-xs font-bold uppercase tracking-wider cursor-pointer disabled:opacity-50"
+                title="Scan or upload document for AI ticket parsing"
+              >
+                {isAnalyzingDoc ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                ) : (
+                  <FileText className="w-4 h-4 text-blue-600" />
+                )}
+                <span>{isAnalyzingDoc ? 'Analyzing...' : 'Upload OCR'}</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-blue-600 transition-transform ${showOcrDropdown ? 'rotate-180' : ''}`} />
+              </button>
 
-           <button 
-             onClick={() => setShowCreateModal(true)}
-             className="flex items-center space-x-2 bg-[#0f172a] hover:bg-[#1e293b] text-white px-5 py-2.5 rounded-xl shadow-md transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
-           >
-             <Plus className="w-4 h-4" />
-             <span>Create Ticket</span>
-           </button>
-        </div>
+              {showOcrDropdown && (
+                <div 
+                  className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 p-1.5 animate-scale-up"
+                  onMouseLeave={() => setShowOcrDropdown(false)}
+                >
+                  <button 
+                    onClick={() => {
+                      setShowOcrDropdown(false);
+                      startCamera('environment');
+                    }}
+                    className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <Camera className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Take Photo (Camera)</div>
+                      <div className="text-[10px] text-slate-400">Scan ticket with live camera</div>
+                    </div>
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      setShowOcrDropdown(false);
+                      fileInputRef.current?.click();
+                    }}
+                    className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-left transition-colors cursor-pointer mt-1"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <Upload className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">Upload Document</div>
+                      <div className="text-[10px] text-slate-400">Upload PDF, PNG, or JPEG file</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center space-x-2 bg-[#0f172a] hover:bg-[#1e293b] text-white px-5 py-2.5 rounded-xl shadow-md transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Ticket</span>
+            </button>
+         </div>
       </div>
 
       {ocrError && (
@@ -398,28 +532,27 @@ export default function SupportEngineerPanel() {
         {/* Filters Group */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           {/* Status Filter */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={statusFilter}
+            <select 
+              value={statusFilter} 
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 text-slate-700 outline-none focus:border-slate-400 cursor-pointer font-medium"
+              className="bg-transparent border-none text-xs font-medium focus:outline-none cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="open">Open</option>
               <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved</option>
               <option value="closed">Closed</option>
             </select>
           </div>
 
           {/* Date Filter */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={dateFilter}
+            <select 
+              value={dateFilter} 
               onChange={(e) => setDateFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 text-slate-700 outline-none focus:border-slate-400 cursor-pointer font-medium"
+              className="bg-transparent border-none text-xs font-medium focus:outline-none cursor-pointer"
             >
               <option value="all">All Time</option>
               <option value="today">Today</option>
@@ -430,78 +563,74 @@ export default function SupportEngineerPanel() {
         </div>
       </div>
 
-      {/* Modern Flat Data Grid - Focused 4 Columns */}
-      <div className="overflow-x-auto w-full">
-         <table className="w-full text-left text-sm text-slate-600 border-collapse">
-           <thead className="border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-             <tr>
-               <th className="px-4 py-3.5 pb-4 w-24">Ticket ID</th>
-               <th className="px-4 py-3.5 pb-4">Title</th>
-               <th className="px-4 py-3.5 pb-4 w-44">Created Date</th>
-               <th className="px-4 py-3.5 pb-4 w-32">Status</th>
-             </tr>
-           </thead>
-           <tbody className="divide-y divide-slate-100">
-             {filteredTickets.map((ticket, index) => (
-               <tr 
-                 key={ticket.ticketId} 
-                 className="hover:bg-slate-50/70 transition-colors cursor-pointer animate-fade-in h-14"
-                 style={{ animationDelay: `${index * 0.03}s` }}
-                 onClick={() => navigate(`/dashboard/ticket/${ticket.ticketId}`)}
-               >
-                 <td className="px-4 py-3 font-mono text-xs text-slate-400 font-bold">#{ticket.ticketId.slice(0,8).toUpperCase()}</td>
-                 <td className="px-4 py-3 font-bold text-slate-900 text-sm truncate max-w-xl">{ticket.title}</td>
-                 <td className="px-4 py-3 text-xs text-slate-500 font-semibold">
-                    {new Date(ticket.createdAt).toLocaleDateString(undefined, { 
-                      year: 'numeric', 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })}
-                 </td>
-                 <td className="px-4 py-3">
-                    <span className={`px-2.5 py-1 text-[9px] uppercase font-extrabold rounded-full border inline-block tracking-wider ${
-                      ticket.status === 'open' ? 'bg-green-50 text-green-700 border-green-200' :
-                      ticket.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                      ticket.status === 'resolved' ? 'bg-slate-100 text-slate-700 border-slate-200' :
-                      'bg-slate-50 text-slate-600 border-slate-200'
-                    }`}>
-                      {ticket.status.replace('_', ' ')}
-                    </span>
-                 </td>
-               </tr>
-             ))}
-             {filteredTickets.length === 0 && (
-               <tr>
-                 <td colSpan={4} className="px-4 py-12 text-center text-slate-400 text-xs font-medium">
-                   No tickets match the current filters.
-                 </td>
-               </tr>
-             )}
-           </tbody>
-         </table>
+      {/* Tickets List */}
+      <div className="space-y-4">
+        {filteredTickets.length === 0 ? (
+          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm">
+            <p className="text-slate-400 text-xs font-semibold">No tickets found matching your filter criteria.</p>
+          </div>
+        ) : (
+          filteredTickets.map((t) => (
+            <div 
+              key={t.ticketId}
+              onClick={() => navigate(`/ticket/${t.ticketId}`)}
+              className="bg-white border border-slate-200/80 hover:border-slate-300 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[11px] font-extrabold tracking-wider text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-0.5 rounded-full font-mono">
+                    #{t.ticketId}
+                  </span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                    t.status === 'open' 
+                      ? 'bg-amber-50 text-amber-600 border border-amber-200' 
+                      : t.status === 'in_progress' 
+                      ? 'bg-blue-50 text-blue-600 border border-blue-200' 
+                      : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                  }`}>
+                    {t.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-slate-900 leading-snug">{t.title}</h4>
+                <p className="text-xs text-slate-500 line-clamp-1">{t.description}</p>
+              </div>
+
+              <div className="flex items-center space-x-6 text-xs text-slate-500 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
+                <div>
+                  <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider">Employee</span>
+                  <span className="font-semibold text-slate-700">{t.employeeId}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider">Reporter</span>
+                  <span className="font-semibold text-slate-700">{t.creatorName}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider">Created</span>
+                  <span className="font-semibold text-slate-700">{new Date(t.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
-      {/* Manual Ticket Creation Sheet Modal */}
+      {/* Manual Ticket Creation Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md p-8 animate-scale-up max-h-[90vh] overflow-y-auto">
-               <h3 className="text-md font-bold text-slate-900 uppercase tracking-wider mb-2">Create Support Ticket</h3>
-               <p className="text-slate-500 text-xs mb-6 font-medium">Create a manual ticketing case for internal processing.</p>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg p-8 animate-scale-up max-h-[90vh] overflow-y-auto">
+               <h3 className="text-md font-bold text-slate-900 uppercase tracking-wider mb-6">Create Support Ticket</h3>
+
                <div className="space-y-4">
-                  {/* Searchable Employee Selector */}
                   <div>
-                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Target Employee <span className="text-red-600">*</span></label>
+                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Target Employee ID <span className="text-red-600">*</span></label>
                      <div className="space-y-2">
-                        <div className="relative">
-                          <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
-                          <input 
-                            type="text"
-                            value={empSearchQuery}
-                            onChange={(e) => setEmpSearchQuery(e.target.value)}
-                            placeholder="Search employee ID or name..."
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 pl-9 text-xs text-slate-900 outline-none focus:border-slate-400"
-                          />
-                        </div>
+                        <input 
+                          type="text"
+                          placeholder="Search employee by ID or name..."
+                          value={empSearchQuery}
+                          onChange={e => setEmpSearchQuery(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs outline-none focus:border-slate-400 text-slate-900"
+                        />
                         <select 
                           value={newEmpId} 
                           onChange={e => setNewEmpId(e.target.value)}
@@ -556,7 +685,6 @@ export default function SupportEngineerPanel() {
                      />
                   </div>
 
-                  {/* Created Date & Time Picker */}
                   <div>
                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Created Date & Time (Optional)</label>
                      <input 
@@ -666,6 +794,88 @@ export default function SupportEngineerPanel() {
                   </div>
                </div>
             </div>
+        </div>
+      )}
+
+      {/* Live Camera Scanner Modal */}
+      {showCameraModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg p-6 animate-scale-up overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2 text-blue-400">
+                <Camera className="w-5 h-5" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Document Camera Scanner</h3>
+              </div>
+              <button 
+                onClick={stopCamera} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {cameraError ? (
+              <div className="p-6 bg-red-950/50 border border-red-800/50 rounded-2xl text-center">
+                <p className="text-xs text-red-300 mb-4">{cameraError}</p>
+                <div className="flex justify-center gap-3">
+                  <button 
+                    onClick={() => startCamera(facingMode)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                  >
+                    Retry Camera
+                  </button>
+                  <button 
+                    onClick={() => { stopCamera(); fileInputRef.current?.click(); }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                  >
+                    Upload File Instead
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="relative rounded-2xl overflow-hidden bg-black border border-slate-800 aspect-[4/3] flex items-center justify-center">
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Document Target Overlay Guide */}
+                  <div className="absolute inset-6 border-2 border-dashed border-blue-400/60 rounded-xl pointer-events-none flex items-center justify-center">
+                    <span className="text-[10px] text-blue-200/80 uppercase font-bold tracking-widest bg-slate-950/60 px-3 py-1 rounded-full backdrop-blur-sm">
+                      Align IT Support Ticket
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-between px-2">
+                  <button 
+                    onClick={toggleCamera}
+                    className="p-3 text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-full transition-all border border-slate-700/50 cursor-pointer"
+                    title="Switch Front/Rear Camera"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                  </button>
+
+                  <button 
+                    onClick={captureCameraPhoto}
+                    className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-3 rounded-full shadow-lg shadow-blue-600/30 transition-all font-bold text-xs uppercase tracking-wider hover:scale-105 active:scale-95 cursor-pointer"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>Take Photo</span>
+                  </button>
+
+                  <button 
+                    onClick={stopCamera}
+                    className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-200 uppercase tracking-wider cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
